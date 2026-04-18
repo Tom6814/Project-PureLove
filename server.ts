@@ -5,7 +5,7 @@ import crypto from 'crypto';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.use(express.json());
 
@@ -61,7 +61,6 @@ async function startServer() {
           const pad = decryptedBuf[decryptedBuf.length - 1];
           const unpaddedBuf = decryptedBuf.slice(0, decryptedBuf.length - pad);
           const jsonStr = unpaddedBuf.toString('utf8');
-          
           const parsedData = JSON.parse(jsonStr);
           
           const album = parsedData?.album || parsedData;
