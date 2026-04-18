@@ -1,0 +1,251 @@
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { doc, getDoc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { Star, MessageSquareDashed, User, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+
+export default function MangaPage() {
+  const { id } = useParams<{ id: string }>();
+  const [manga, setManga] = useState<any>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const { user } = useAuth();
+  
+  // Review form
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [customUsername, setCustomUsername] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [jmUsername, setJmUsername] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    const fetchManga = async () => {
+      try {
+        const docSnap = await getDoc(doc(db, 'mangas', id));
+        if (docSnap.exists()) {
+          setManga({ id: docSnap.id, ...docSnap.data() });
+        }
+      } catch (err) {
+        handleFirestoreError(err, OperationType.GET, `mangas/${id}`);
+      }
+    };
+    fetchManga();
+
+    const q = query(collection(db, 'reviews'), where('mangaId', '==', id), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setReviews(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'reviews'));
+
+    return () => unsubscribe();
+  }, [id]);
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !id) return;
+    setSubmitting(true);
+    try {
+      await addDoc(collection(db, 'reviews'), {
+        mangaId: id,
+        userId: user.uid,
+        rating,
+        comment,
+        customUsername,
+        contactEmail,
+        jmUsername,
+        createdAt: new Date().toISOString(),
+      });
+      
+      // Update overall manga rating (basic implementation, not atomic for simplicity in this demo)
+      const newReviewCount = (manga.reviewCount || 0) + 1;
+      const newAvgRating = (((manga.averageRating || 0) * (manga.reviewCount || 0)) + rating) / newReviewCount;
+      
+      await updateDoc(doc(db, 'mangas', id), {
+        averageRating: newAvgRating,
+        reviewCount: newReviewCount
+      });
+
+      setComment(''); setRating(5);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'reviews');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!manga) return <div className="p-20 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-pink-500" /></div>;
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-12">
+      {/* Detail Head */}
+      <div className="flex flex-col md:flex-row gap-8 bg-white p-6 sm:p-8 rounded-[12px] shadow-theme-card border border-[#eee] relative overflow-hidden">
+        <div className="w-full md:w-[220px] flex-shrink-0 relative z-10">
+          <img 
+            src={manga.coverUrl} 
+            alt={manga.title} 
+            className="w-full aspect-[2/3] object-cover rounded-md shadow-sm border border-[#eee] bg-[#e5e5e5]"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+        <div className="flex-1 relative z-10 space-y-4 md:pt-4">
+          <h1 className="font-serif text-[32px] font-light text-theme-ink leading-tight tracking-tight">{manga.title}</h1>
+          
+          <div className="flex items-center space-x-4 pb-4 border-b border-[#eee]">
+            <div className="text-theme-accent text-[14px] font-medium flex items-center">
+              ★ {manga.averageRating ? manga.averageRating.toFixed(1) : 'No Ratings'}
+            </div>
+            <span className="text-theme-muted text-[12px]">({manga.reviewCount || 0} 评分)</span>
+          </div>
+
+          <p className="text-theme-ink leading-relaxed text-[13px] whitespace-pre-wrap">{manga.description}</p>
+          
+          <div className="grid grid-cols-2 gap-4 pt-4 text-[13px]">
+            <div>
+              <span className="block text-theme-muted mb-1">作者</span>
+              <span className="text-theme-ink font-medium">{manga.authors?.join(', ') || 'Unknown'}</span>
+            </div>
+            <div>
+              <span className="block text-theme-muted mb-1">页面</span>
+              <span className="text-theme-ink font-medium">{manga.pages || '?'}</span>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <span className="block text-theme-muted mb-2 text-[12px]">标签</span>
+            <div className="flex flex-wrap gap-2">
+              {manga.tags?.map((t: string) => (
+                <span key={t} className="px-2 py-0.5 bg-theme-search text-theme-muted border border-[#eee] rounded text-[11px]">
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Reviews Section */}
+      <div className="space-y-8 pb-20">
+        <h2 className="text-[20px] font-serif text-theme-ink flex items-center border-b border-[#eee] pb-4">
+          <MessageSquareDashed className="w-5 h-5 mr-3 text-theme-accent" />
+          社区评价
+        </h2>
+
+        {/* Optional Add Review */}
+        {user ? (
+          <form onSubmit={handleSubmitReview} className="bg-white p-6 rounded-[12px] border border-[#eee] shadow-sm space-y-4">
+            <h3 className="text-[14px] font-semibold text-theme-ink">发表评论</h3>
+            
+            <div className="flex items-center space-x-3 mb-4">
+              <span className="text-[13px] text-theme-muted">评分:</span>
+              <div className="flex">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button 
+                    key={s} 
+                    type="button" 
+                    onClick={() => setRating(s)}
+                    className={`p-1 transition-colors \${rating >= s ? 'text-theme-accent' : 'text-[#ddd]'} hover:text-theme-accent`}
+                  >
+                    <Star className={`w-5 h-5 \${rating >= s ? 'fill-current' : ''}`} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[12px] text-theme-muted mb-1">显示名称</label>
+                <input 
+                  type="text" 
+                  value={customUsername} onChange={(e) => setCustomUsername(e.target.value)}
+                  placeholder="匿名"
+                  className="w-full px-3 py-2 rounded border border-[#eee] bg-theme-search focus:bg-white focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none text-[13px] transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-[12px] text-theme-muted mb-1">JM 用户名 (选填)</label>
+                <input 
+                  type="text" 
+                  value={jmUsername} onChange={(e) => setJmUsername(e.target.value)}
+                  placeholder="@jmuser"
+                  className="w-full px-3 py-2 rounded border border-[#eee] bg-theme-search focus:bg-white focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none text-[13px] transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-[12px] text-theme-muted mb-1">联系邮箱 (仅管理员可见)</label>
+                <input 
+                  type="email" 
+                  value={contactEmail} onChange={(e) => setContactEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full px-3 py-2 rounded border border-[#eee] bg-theme-search focus:bg-white focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none text-[13px] transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-[12px] text-theme-muted mb-1">评论内容</label>
+              <textarea 
+                required
+                value={comment} onChange={(e) => setComment(e.target.value)}
+                placeholder="分享你的纯爱感想..."
+                rows={3}
+                className="w-full px-3 py-3 rounded border border-[#eee] bg-theme-search focus:bg-white focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none text-[13px] transition-all resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button 
+                type="submit" 
+                disabled={submitting}
+                className="px-6 py-2 bg-theme-ink text-white rounded text-[13px] font-medium hover:bg-black transition-colors disabled:opacity-50 flex items-center"
+              >
+                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                提交评论
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="bg-theme-main border border-[#eee] rounded-lg p-6 text-center text-theme-muted text-[13px]">
+            请登录后发表评论
+          </div>
+        )}
+
+        {/* Existing Reviews */}
+        <div className="space-y-4">
+          {reviews.length === 0 ? (
+            <p className="text-theme-muted text-[13px] text-center py-8">暂无评论，来做第一个吧！</p>
+          ) : (
+            reviews.map((r) => (
+              <div key={r.id} className="bg-white p-5 rounded-[12px] border border-[#eee] shadow-sm flex items-start space-x-4">
+                <div className="w-10 h-10 rounded-full bg-theme-bg border border-[#eee] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  <User className="w-5 h-5 text-[#ccc]" />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-semibold text-[14px] text-theme-ink flex items-center">
+                        {r.customUsername || '匿名访客'}
+                        {r.jmUsername && <span className="ml-2 text-[11px] font-normal text-theme-muted bg-theme-bg px-2 py-0.5 rounded border border-[#eee]">JM: {r.jmUsername}</span>}
+                      </h4>
+                      <div className="flex items-center text-theme-accent mt-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className={`w-3 h-3 \${i < r.rating ? 'fill-current' : 'text-[#eee]'}`} />
+                        ))}
+                      </div>
+                    </div>
+                    <span className="text-[11px] text-theme-muted whitespace-nowrap ml-4">
+                      {format(new Date(r.createdAt), 'yyyy-MM-dd')}
+                    </span>
+                  </div>
+                  <p className="text-theme-ink mt-2 text-[13px] leading-relaxed whitespace-pre-wrap">{r.comment}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

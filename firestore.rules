@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        (request.auth.token.email == "sliverwhale000@gmail.com" && request.auth.token.email_verified == true));
+    }
+    function isReviewer() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'reviewer';
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+    function hasOnlyAllowedFields(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return data.uid is string &&
+             data.email is string &&
+             data.role in ['user', 'admin', 'reviewer'] &&
+             data.createdAt is string &&
+             (!('displayName' in data) || data.displayName is string) &&
+             (!('photoURL' in data) || data.photoURL is string);
+    }
+
+    function isValidManga(data) {
+      return data.jmId is string && data.jmId.size() > 0 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.submittedBy is string &&
+             data.createdAt is string &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 5000)) &&
+             (!('coverUrl' in data) || data.coverUrl is string) &&
+             (!('authors' in data) || data.authors is list) &&
+             (!('tags' in data) || data.tags is list) &&
+             (!('pages' in data) || data.pages is number) &&
+             (!('averageRating' in data) || data.averageRating is number) &&
+             (!('reviewCount' in data) || data.reviewCount is number);
+    }
+
+    function isValidReview(data) {
+      return data.mangaId is string &&
+             data.userId is string &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.createdAt is string &&
+             (!('comment' in data) || (data.comment is string && data.comment.size() <= 1000)) &&
+             (!('customUsername' in data) || (data.customUsername is string && data.customUsername.size() <= 50)) &&
+             (!('contactEmail' in data) || (data.contactEmail is string && data.contactEmail.size() <= 100)) &&
+             (!('jmUsername' in data) || (data.jmUsername is string && data.jmUsername.size() <= 50));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // User can create their own document if they are a 'user'. 
+      // Only an existing admin or the root email can create 'admin' or 'reviewer' roles.
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
+                    ((request.resource.data.role == 'user') || isAdmin());
+                    
+      // Same for update. Only an existing admin can write an updated role, OR user updates own stuff but keeps role same
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) ||
+                    (isAdmin() && isValidUser(request.resource.data));
+    }
+
+    match /mangas/{mangaId} {
+      // Anyone can read approved mangas. 
+      // Only admins or reviewer or original submitter can read pending/rejected.
+      allow read: if resource.data.status == 'approved' || 
+                  (isAuthenticated() && (isAdmin() || isReviewer() || resource.data.submittedBy == request.auth.uid));
+      
+      // Users can submit pending mangas
+      allow create: if isAuthenticated() && isValidManga(request.resource.data) && 
+                    request.resource.data.status == 'pending' &&
+                    request.resource.data.submittedBy == request.auth.uid;
+                    
+      // Admins or reviewers can approve or edit mangas
+      allow update: if (isAdmin() || isReviewer()) && isValidManga(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      // Anyone can read reviews.
+      allow read: if true;
+      
+      // User can only create reviews for themselves
+      allow create: if isOwner(request.resource.data.userId) && 
+                    isValidReview(request.resource.data);
+                    
+      // User can update their own reviews
+      allow update: if isOwner(resource.data.userId) && 
+                    isValidReview(request.resource.data) && 
+                    request.resource.data.userId == resource.data.userId &&
+                    request.resource.data.mangaId == resource.data.mangaId;
+                    
+      allow delete: if isAdmin() || isOwner(resource.data.userId);
+    }
+  }
+}

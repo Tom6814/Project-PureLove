@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile data.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Subject UID linked to Auth" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "Manga": {
+      "title": "Manga",
+      "description": "Submitted JM Manga",
+      "type": "object",
+      "properties": {
+        "jmId": { "type": "string", "description": "The unique ID from JM" },
+        "title": { "type": "string", "description": "Name of the manga" },
+        "description": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "authors": { "type": "array", "items": { "type": "string" } },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "pages": { "type": "number", "description": "Number of pages" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "submittedBy": { "type": "string", "description": "User UID who submitted" },
+        "averageRating": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["jmId", "title", "status", "submittedBy", "createdAt"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "User review and rating for a manga",
+      "type": "object",
+      "properties": {
+        "mangaId": { "type": "string" },
+        "userId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "customUsername": { "type": "string" },
+        "contactEmail": { "type": "string" },
+        "jmUsername": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["mangaId", "userId", "rating", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles and roles. Only readable by owner, admins, or if we need basic public info."
+    },
+    "/mangas/{mangaId}": {
+      "schema": { "$ref": "#/entities/Manga" },
+      "description": "Stored JM Mangas."
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Reviews associated with a manga."
+    }
+  }
+}
