@@ -4,7 +4,7 @@ import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Info, Send, Loader2 } from 'lucide-react';
+import { Info, Send, Loader2, CheckCircle } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 export default function SubmitPage() {
@@ -13,6 +13,15 @@ export default function SubmitPage() {
   const [preview, setPreview] = useState<any | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    coverUrl: '',
+    authors: '',
+    tags: '',
+  });
   
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -27,12 +36,26 @@ export default function SubmitPage() {
       const cleanId = jmId.replace(/\D/g, '');
       const response = await axios.get(`/api/jm/${cleanId}`);
       if (response.data.success) {
-        setPreview(response.data.data);
+        const data = response.data.data;
+        setPreview(data);
+        setFormData({
+          title: data.title || '',
+          description: data.description || '',
+          coverUrl: data.coverUrl || '',
+          authors: Array.isArray(data.authors) ? data.authors.join(', ') : (data.authors || ''),
+          tags: Array.isArray(data.tags) ? data.tags.join(', ') : (data.tags || ''),
+        });
+        setToastMessage('解析成功，请补充阅读感想后提交');
+        setTimeout(() => setToastMessage(''), 3000);
       } else {
         setError('Failed to fetch data from JM.');
       }
     } catch (err: any) {
-      setError(err.message || 'Error fetching data.');
+      if (err.response?.status === 400) {
+        setError(err.response.data.error || '解析失败，未找到该JM号的数据');
+      } else {
+        setError(err.message || 'Error fetching data.');
+      }
     } finally {
       setLoading(false);
     }
@@ -42,13 +65,15 @@ export default function SubmitPage() {
     if (!preview || !user) return;
     setSubmitting(true);
     try {
+      const authorsArr = formData.authors.split(',').map(s => s.trim()).filter(Boolean);
+      const tagsArr = formData.tags.split(',').map(s => s.trim()).filter(Boolean);
       await addDoc(collection(db, 'mangas'), {
         jmId: preview.jmId,
-        title: preview.title,
-        description: preview.description || '',
-        coverUrl: preview.coverUrl || '',
-        authors: preview.authors || [],
-        tags: preview.tags || [],
+        title: formData.title,
+        description: formData.description,
+        coverUrl: formData.coverUrl,
+        authors: authorsArr.length ? authorsArr : ['Unknown'],
+        tags: tagsArr.length ? tagsArr : [],
         pages: preview.pages || 0,
         status: 'pending',
         submittedBy: user.uid,
@@ -98,28 +123,67 @@ export default function SubmitPage() {
             <div className="mt-8 p-5 bg-theme-main rounded-[12px] border border-[#eee]">
               <h3 className="font-semibold text-theme-ink mb-4 flex items-center text-[14px]">
                 <Info className="w-4 h-4 mr-2 text-theme-accent" />
-                预览信息
+                确认并补充信息
               </h3>
               
-              <div className="flex gap-5">
+              <div className="flex gap-5 mb-6">
                 <img 
-                  src={preview.coverUrl} 
+                  src={formData.coverUrl || preview.coverUrl} 
                   alt="Cover" 
                   className="w-[100px] h-[150px] object-cover rounded-md border border-[#eee]"
                   referrerPolicy="no-referrer"
                 />
-                <div className="flex-1 space-y-2">
-                  <h4 className="font-semibold text-[14px] leading-tight text-theme-ink">{preview.title}</h4>
-                  <p className="text-[12px] text-theme-muted line-clamp-3 leading-relaxed">{preview.description}</p>
-                  <div className="pt-2">
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {preview.tags.map((t: string) => (
-                        <span key={t} className="text-[11px] px-2 py-0.5 bg-white text-theme-muted border border-[#eee] rounded-full">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <label className="block text-[12px] font-medium text-theme-ink mb-1">封面链接 (防盗链已处理)</label>
+                    <input 
+                      type="text" 
+                      value={formData.coverUrl}
+                      onChange={(e) => setFormData({...formData, coverUrl: e.target.value})}
+                      className="w-full px-3 py-2 bg-theme-search border-none rounded-lg text-[13px] text-theme-ink focus:outline-none focus:ring-2 focus:ring-theme-accent/30"
+                    />
                   </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-theme-ink mb-1">标题</label>
+                    <input 
+                      type="text" 
+                      value={formData.title}
+                      onChange={(e) => setFormData({...formData, title: e.target.value})}
+                      className="w-full px-3 py-2 bg-theme-search border-none rounded-lg text-[13px] text-theme-ink focus:outline-none focus:ring-2 focus:ring-theme-accent/30"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[12px] font-medium text-theme-ink mb-1">作者 (多个用逗号分隔)</label>
+                  <input 
+                    type="text" 
+                    value={formData.authors}
+                    onChange={(e) => setFormData({...formData, authors: e.target.value})}
+                    className="w-full px-3 py-2 bg-theme-search border-none rounded-lg text-[13px] text-theme-ink focus:outline-none focus:ring-2 focus:ring-theme-accent/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-medium text-theme-ink mb-1">标签 (多个用逗号分隔)</label>
+                  <input 
+                    type="text" 
+                    value={formData.tags}
+                    onChange={(e) => setFormData({...formData, tags: e.target.value})}
+                    className="w-full px-3 py-2 bg-theme-search border-none rounded-lg text-[13px] text-theme-ink focus:outline-none focus:ring-2 focus:ring-theme-accent/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-medium text-theme-ink mb-1">简介 / 阅读感想</label>
+                  <textarea 
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    rows={4}
+                    className="w-full px-3 py-2 bg-theme-search border-none rounded-lg text-[13px] text-theme-ink focus:outline-none focus:ring-2 focus:ring-theme-accent/30 resize-none"
+                  />
                 </div>
               </div>
 
@@ -137,6 +201,13 @@ export default function SubmitPage() {
           )}
         </div>
       </div>
+      
+      {toastMessage && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-50 flex items-center text-[14px] font-medium animate-in fade-in slide-in-from-top-4">
+          <CheckCircle className="w-5 h-5 mr-2" />
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }

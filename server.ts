@@ -1,8 +1,7 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
-import axios from 'axios';
-import * as cheerio from 'cheerio';
+import crypto from 'crypto';
 
 async function startServer() {
   const app = express();
@@ -15,40 +14,92 @@ async function startServer() {
     const { jmId } = req.params;
     const cleanId = jmId.replace(/\D/g, '');
 
-    try {
-      // Attempt to hit a known JM mirror URL. 
-      // Many mirrors exist, we use a common one as an example.
-      // E.g., 18comic.vip, jmcomic1.me. We spoof headers to avoid blocks.
-      const url = `https://18comic.vip/album/${cleanId}`;
-      const response = await axios.get(url, {
-        timeout: 5000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+    const baseUrls = [
+      'https://www.cdnhjk.net',
+      'https://www.cdngwc.cc',
+      'https://www.cdngwc.net',
+      'https://www.cdngwc.club',
+      'https://www.cdnhjk.cc'
+    ];
+
+    let success = false;
+    let albumData: any = null;
+
+    // Generate basic JMComic token for native API requests
+    const ts = Math.floor(Date.now() / 1000).toString();
+    const ver = '2.0.19';
+    const tokenparam = `${ts},${ver}`;
+    const token = crypto.createHash('md5').update(ts + '18comicAPP').digest('hex');
+    const secret = '185Hcomic3PAPP7R'; // APP_DATA_SECRET
+
+    for (const baseUrl of baseUrls) {
+      try {
+        const url = `${baseUrl}/album?id=${cleanId}`;
+        const response = await fetch(url, {
+          signal: AbortSignal.timeout(8000),
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 9; V1938CT Build/PQ3A.190705.11211812; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.114 Safari/537.36',
+            'token': token,
+            'tokenparam': tokenparam,
+            'Accept-Encoding': 'identity'
+          }
+        });
+
+        const result = await response.json();
+        if (result && result.code === 200 && typeof result.data === 'string') {
+          // Decrypt the data
+          const keyStr = ts + secret;
+           const keyHex = crypto.createHash('md5').update(keyStr).digest('hex');
+           const key = Buffer.from(keyHex, 'utf8');
+           const decipher = crypto.createDecipheriv('aes-256-ecb', key, null);
+           decipher.setAutoPadding(false); // Manually handle padding
+          
+          const encryptedBuf = Buffer.from(result.data, 'base64');
+          const decryptedBuf = Buffer.concat([decipher.update(encryptedBuf), decipher.final()]);
+          
+          // PKCS7 unpadding
+          const pad = decryptedBuf[decryptedBuf.length - 1];
+          const unpaddedBuf = decryptedBuf.slice(0, decryptedBuf.length - pad);
+          const jsonStr = unpaddedBuf.toString('utf8');
+          
+          const parsedData = JSON.parse(jsonStr);
+          
+          const album = parsedData?.album || parsedData;
+          if (album && (album.id || album.name || album.title)) {
+            albumData = album;
+            success = true;
+            break;
+          }
+        } else if (result && result.code === 200 && Array.isArray(result.data) && result.data.length === 0) {
+           // 404 conceptually (empty data)
+           continue;
         }
-      });
+      } catch (error: any) {
+        console.log(`Failed to fetch from ${baseUrl}: ${error.message}`);
+        if (error.response) {
+          console.log(error.response.data);
+        }
+      }
+    }
 
-      const $ = cheerio.load(response.data);
-      const title = $('.panel-heading h1').text().trim() || `JM${cleanId} Title`;
-      const coverUrl = $('.thumb-overlay img').first().attr('src') || `https://picsum.photos/seed/${cleanId}manga/400/600`;
+    if (success && albumData) {
+      const title = albumData.name || albumData.title || `JM${cleanId} Title`;
+      const description = albumData.description || albumData.intro || '';
+      const coverUrl = albumData.photo_url || albumData.cover || `https://cdn-us.jmapiproxy.vip/media/albums/${cleanId}.jpg`;
       
-      const tags: string[] = [];
-      $('span[data-default="Tags"] ~ a, .tag-block a').each((_, el) => {
-        const text = $(el).text().trim();
-        if (text) tags.push(text);
-      });
+      let tags: string[] = [];
+      if (Array.isArray(albumData.tags)) {
+        tags = albumData.tags.map((t: any) => typeof t === 'string' ? t : (t.name || t.title || ''));
+      } else if (typeof albumData.tags === 'string') {
+        tags = [albumData.tags];
+      }
 
-      const authors: string[] = [];
-      $('span[data-default="Author"] ~ a, span[data-default="作者"] ~ a').each((_, el) => {
-        const text = $(el).text().trim();
-        if (text) authors.push(text);
-      });
-
-      const pagesText = $('span[data-default="Pages"], span[data-default="頁數"]').next().text().trim();
-      const pages = parseInt(pagesText) || 0;
-
-      const description = $('#intro-block .p-t-5').text().trim() || 'No description provided.';
+      let authors: string[] = [];
+      if (Array.isArray(albumData.author)) {
+        authors = albumData.author.map((a: any) => typeof a === 'string' ? a : (a.name || a.title || ''));
+      } else if (typeof albumData.author === 'string') {
+        authors = [albumData.author];
+      }
 
       res.json({
         success: true,
@@ -58,55 +109,18 @@ async function startServer() {
           description,
           coverUrl,
           authors: authors.length ? authors : ['Unknown'],
-          tags: tags.length ? tags : ['纯爱'], // Assume pure love for this site theme
-          pages
+          tags: tags.length ? tags : [],
+          pages: parseInt(albumData.page_count || albumData.pages || "0") || 0
         }
       });
       return;
-    } catch (error) {
-      console.error(`Failed to fetch JM data for ${cleanId}, falling back to mock:`, (error as Error).message);
-      
-      // Fallback due to Cloudflare / Network blocks common on Cloud Run
-      setTimeout(() => {
-        const mockMangas = [
-          {
-            jmId: cleanId,
-            title: `[Pure Love Project] First Kiss in Spring (JM${cleanId})`,
-            description: "A heart-warming story of two childhood friends realizing their true feelings for each other during the spring festival. No drama, just 100% pure vanilla sweetness and wholesome moments.",
-            coverUrl: `https://picsum.photos/seed/${cleanId}manga/400/600`, 
-            authors: ["Yuzuki Sakura", "Studio Vanilla"],
-            tags: ["纯爱", "Vanilla", "Childhood Friend", "Romance", "Wholesome", "Full Color"],
-            pages: 32,
-          },
-          {
-            jmId: cleanId,
-            title: `[Milky Way] My Cute Senpai's Secret (JM${cleanId})`,
-            description: "She is the perfect student council president, but she has a secret only I know. A thoroughly sweet and heartwarming romantic comedy that explores their secret dorm dates.",
-            coverUrl: `https://picsum.photos/seed/${cleanId}senpai/400/600`,
-            authors: ["Hoshino", "MilkyWay Circle"],
-            tags: ["纯爱", "Wholesome", "Senpai", "Sweat", "Romance"],
-            pages: 45,
-          },
-          {
-            jmId: cleanId,
-            title: `[Lovly Heart] Morning Coffee with My Wife (JM${cleanId})`,
-            description: "Newlyweds enjoying their morning routine. Every page is filled to the brim with sugar. For those looking for extreme vanilla and a happy atmosphere.",
-            coverUrl: `https://picsum.photos/seed/${cleanId}wife/400/600`,
-            authors: ["Kawaii Neko"],
-            tags: ["纯爱", "Newlyweds", "Vanilla", "Sole Female", "Sole Male"],
-            pages: 28,
-          }
-        ];
-
-        const manga = mockMangas[parseInt(cleanId || "0") % mockMangas.length] || mockMangas[0];
-        
-        res.json({
-          success: true,
-          data: manga,
-          isMock: true
-        });
-      }, 500);
     }
+
+    // Fallback if all URLs fail or not found
+    res.status(400).json({
+      success: false,
+      error: '解析失败，无法连接到 JM API 或该漫画不存在。'
+    });
   });
 
   // Vite middleware for development
