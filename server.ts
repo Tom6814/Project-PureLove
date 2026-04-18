@@ -1,8 +1,6 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
-import axios from 'axios';
-import * as cheerio from 'cheerio';
 import crypto from 'crypto';
 
 async function startServer() {
@@ -17,10 +15,11 @@ async function startServer() {
     const cleanId = jmId.replace(/\D/g, '');
 
     const baseUrls = [
-      'https://www.jmapiproxy.vip',
-      'https://www.jmapiproxy.net',
-      'https://18comic.vip',
-      'https://jmcomic1.me'
+      'https://www.cdnhjk.net',
+      'https://www.cdngwc.cc',
+      'https://www.cdngwc.net',
+      'https://www.cdngwc.club',
+      'https://www.cdnhjk.cc'
     ];
 
     let success = false;
@@ -28,32 +27,58 @@ async function startServer() {
 
     // Generate basic JMComic token for native API requests
     const ts = Math.floor(Date.now() / 1000).toString();
-    const token = crypto.createHash('md5').update(ts + '18comicAPPContent').digest('hex');
+    const ver = '2.0.19';
+    const tokenparam = `${ts},${ver}`;
+    const token = crypto.createHash('md5').update(ts + '18comicAPP').digest('hex');
+    const secret = '185Hcomic3PAPP7R'; // APP_DATA_SECRET
 
     for (const baseUrl of baseUrls) {
       try {
-        const url = `${baseUrl}/api/album/${cleanId}`;
-        const response = await axios.get(url, {
-          timeout: 5000,
+        const url = `${baseUrl}/album?id=${cleanId}`;
+        const response = await fetch(url, {
+          signal: AbortSignal.timeout(8000),
           headers: {
-            'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 12; KB2000 Build/SKQ1.211019.001)',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 9; V1938CT Build/PQ3A.190705.11211812; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.114 Safari/537.36',
             'token': token,
-            'tokenparam': ts,
-            'Accept-Encoding': 'gzip',
+            'tokenparam': tokenparam,
+            'Accept-Encoding': 'identity'
           }
         });
 
-        const result = response.data;
-        if (result && (result.data || result.album || result.title || result.name)) {
-          const album = result.data?.album || result.album || result.data || result;
+        const result = await response.json();
+        if (result && result.code === 200 && typeof result.data === 'string') {
+          // Decrypt the data
+          const keyStr = ts + secret;
+           const keyHex = crypto.createHash('md5').update(keyStr).digest('hex');
+           const key = Buffer.from(keyHex, 'utf8');
+           const decipher = crypto.createDecipheriv('aes-256-ecb', key, null);
+           decipher.setAutoPadding(false); // Manually handle padding
+          
+          const encryptedBuf = Buffer.from(result.data, 'base64');
+          const decryptedBuf = Buffer.concat([decipher.update(encryptedBuf), decipher.final()]);
+          
+          // PKCS7 unpadding
+          const pad = decryptedBuf[decryptedBuf.length - 1];
+          const unpaddedBuf = decryptedBuf.slice(0, decryptedBuf.length - pad);
+          const jsonStr = unpaddedBuf.toString('utf8');
+          
+          const parsedData = JSON.parse(jsonStr);
+          
+          const album = parsedData?.album || parsedData;
           if (album && (album.id || album.name || album.title)) {
             albumData = album;
             success = true;
             break;
           }
+        } else if (result && result.code === 200 && Array.isArray(result.data) && result.data.length === 0) {
+           // 404 conceptually (empty data)
+           continue;
         }
-      } catch (error) {
-        console.log(`Failed to fetch from ${baseUrl}: ${(error as Error).message}`);
+      } catch (error: any) {
+        console.log(`Failed to fetch from ${baseUrl}: ${error.message}`);
+        if (error.response) {
+          console.log(error.response.data);
+        }
       }
     }
 
@@ -64,14 +89,14 @@ async function startServer() {
       
       let tags: string[] = [];
       if (Array.isArray(albumData.tags)) {
-        tags = albumData.tags;
+        tags = albumData.tags.map((t: any) => typeof t === 'string' ? t : (t.name || t.title || ''));
       } else if (typeof albumData.tags === 'string') {
         tags = [albumData.tags];
       }
 
       let authors: string[] = [];
       if (Array.isArray(albumData.author)) {
-        authors = albumData.author;
+        authors = albumData.author.map((a: any) => typeof a === 'string' ? a : (a.name || a.title || ''));
       } else if (typeof albumData.author === 'string') {
         authors = [albumData.author];
       }
@@ -91,9 +116,7 @@ async function startServer() {
       return;
     }
 
-    // Fallback if all URLs fail to avoid breaking the frontend mock completely,
-    // but the prompt explicitly requires:
-    // "遇到 404 或解析异常，请向前端抛出 400状态码 及明文错误说明。"
+    // Fallback if all URLs fail or not found
     res.status(400).json({
       success: false,
       error: '解析失败，无法连接到 JM API 或该漫画不存在。'
