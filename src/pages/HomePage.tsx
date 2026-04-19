@@ -4,7 +4,7 @@ import { db } from '../lib/firebase';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Heart, Search } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, getValidImageUrl } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 export default function HomePage() {
@@ -121,7 +121,7 @@ export default function HomePage() {
                 <Link to={`/manga/${manga.id}`} className="group block h-full bg-white rounded-xl overflow-hidden shadow-theme-card border border-black/[0.03] transition-all hover:-translate-y-1">
                   <div className="aspect-[2/3] overflow-hidden bg-[#e5e5e5] relative">
                     <img 
-                      src={manga.coverUrl} 
+                      src={getValidImageUrl(manga.coverUrl)} 
                       alt={manga.title}
                       className="w-full h-full object-cover group-hover:opacity-90 transition-opacity duration-500"
                       referrerPolicy="no-referrer"

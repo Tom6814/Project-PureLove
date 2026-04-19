@@ -24,6 +24,7 @@ async function startServer() {
 
     let success = false;
     let albumData: any = null;
+    let successfulBaseUrl = '';
 
     // Generate basic JMComic token for native API requests
     const ts = Math.floor(Date.now() / 1000).toString();
@@ -68,6 +69,7 @@ async function startServer() {
           if (album && (album.id || album.name || album.title)) {
             albumData = album;
             success = true;
+            successfulBaseUrl = baseUrl;
             break;
           }
         } else if (result && result.code === 200 && Array.isArray(result.data) && result.data.length === 0) {
@@ -103,8 +105,13 @@ async function startServer() {
 
       let finalCoverUrl = coverUrl;
       try {
-        const coverResponse = await fetch(coverUrl, {
-          signal: AbortSignal.timeout(5000),
+        const coverObj = new URL(coverUrl);
+        const apiObj = new URL(successfulBaseUrl);
+        coverObj.host = apiObj.host;
+        const fetchCoverUrl = coverObj.toString();
+
+        const coverResponse = await fetch(fetchCoverUrl, {
+          signal: AbortSignal.timeout(10000),
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
             'Referer': 'https://jmcomic.ltd/',
@@ -116,9 +123,17 @@ async function startServer() {
           const base64 = buffer.toString('base64');
           const contentType = coverResponse.headers.get('content-type') || 'image/jpeg';
           finalCoverUrl = `data:${contentType};base64,${base64}`;
+        } else {
+          finalCoverUrl = fetchCoverUrl;
         }
       } catch (err) {
         console.log(`Failed to fetch cover image: ${(err as Error).message}`);
+        try {
+          const coverObj = new URL(coverUrl);
+          const apiObj = new URL(successfulBaseUrl);
+          coverObj.host = apiObj.host;
+          finalCoverUrl = coverObj.toString();
+        } catch(e) {}
       }
 
       res.json({

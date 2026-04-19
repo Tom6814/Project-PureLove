@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Star, MessageSquareDashed, User, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { getValidImageUrl } from '../lib/utils';
 
 export default function MangaPage() {
   const { id } = useParams<{ id: string }>();
@@ -56,8 +57,8 @@ export default function MangaPage() {
     e.preventDefault();
     if (!user || !id) return;
     setSubmitting(true);
+    const isUpdating = !!userReview;
     try {
-      const isUpdating = !!userReview;
       
       const reviewData = {
         mangaId: id,
@@ -116,7 +117,7 @@ export default function MangaPage() {
       <div className="flex flex-col md:flex-row gap-8 bg-white p-6 sm:p-8 rounded-[12px] shadow-theme-card border border-[#eee] relative overflow-hidden">
         <div className="w-full md:w-[220px] flex-shrink-0 relative z-10">
           <img 
-            src={manga.coverUrl} 
+            src={getValidImageUrl(manga.coverUrl)} 
             alt={manga.title} 
             className="w-full aspect-[2/3] object-cover rounded-md shadow-sm border border-[#eee] bg-[#e5e5e5]"
             referrerPolicy="no-referrer"
