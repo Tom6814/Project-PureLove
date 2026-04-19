@@ -135,7 +135,7 @@ export default function HomePage() {
                       作者: {manga.authors?.join(', ') || 'Unknown'}
                     </div>
                     <div className="flex justify-between mt-[10px] text-[11px] text-theme-accent">
-                      <span>★ {manga.averageRating ? manga.averageRating.toFixed(1) : '4.9'} ({manga.reviewCount || 0} 评分)</span>
+                      <span>★ {manga.averageRating ? manga.averageRating.toFixed(1) : '暂无评分'} ({manga.reviewCount || 0} 评分)</span>
                       <span>JM{manga.jmId}</span>
                     </div>
                   </div>

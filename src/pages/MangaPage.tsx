@@ -20,24 +20,24 @@ export default function MangaPage() {
 
   useEffect(() => {
     if (!id) return;
-    const fetchManga = async () => {
-      try {
-        const docSnap = await getDoc(doc(db, 'mangas', id));
-        if (docSnap.exists()) {
-          setManga({ id: docSnap.id, ...docSnap.data() });
-        }
-      } catch (err) {
-        handleFirestoreError(err, OperationType.GET, `mangas/${id}`);
+    
+    const unsubscribeManga = onSnapshot(doc(db, 'mangas', id), (docSnap) => {
+      if (docSnap.exists()) {
+        setManga({ id: docSnap.id, ...docSnap.data() });
       }
-    };
-    fetchManga();
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, `mangas/${id}`);
+    });
 
     const q = query(collection(db, 'reviews'), where('mangaId', '==', id), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeReviews = onSnapshot(q, (snapshot) => {
       setReviews(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'reviews'));
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeManga();
+      unsubscribeReviews();
+    };
   }, [id]);
 
   const handleSubmitReview = async (e: React.FormEvent) => {
