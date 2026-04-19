@@ -4,6 +4,13 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
+export interface SocialLink {
+  id: string;
+  icon: string; // Emoji, like 🐦, 🌐, 📺
+  label: string; // e.g. Twitter, Website, YouTube
+  url: string;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -12,6 +19,8 @@ export interface UserProfile {
   role: 'user' | 'admin' | 'reviewer';
   jmUsername?: string;
   contactEmail?: string;
+  bio?: string;
+  socialLinks?: SocialLink[];
   backgroundUrl?: string;
   customCss?: string;
   createdAt: string;

@@ -98,6 +98,30 @@ export default function UserPage() {
                 加入于 {format(new Date(profile.createdAt), 'yyyy-MM-dd')}
               </span>
             </div>
+
+            {profile.bio && (
+              <p className="mt-4 text-[14px] text-theme-ink/80 whitespace-pre-wrap leading-relaxed">
+                {profile.bio}
+              </p>
+            )}
+
+            {profile.socialLinks && profile.socialLinks.length > 0 && (
+              <div className="mt-5 flex flex-wrap gap-3 justify-center md:justify-start">
+                {profile.socialLinks.map((link) => (
+                  <a 
+                    key={link.id} 
+                    href={link.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/60 hover:bg-white border border-[#eee] rounded-full text-[13px] font-medium text-theme-ink transition-all hover:shadow-sm hover:-translate-y-0.5"
+                    title={link.label}
+                  >
+                    <span>{link.icon}</span>
+                    <span>{link.label}</span>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, SocialLink } from '../contexts/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { Save, Loader2 } from 'lucide-react';
+import { Save, Loader2, Plus, Trash2 } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, profile } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [jmUsername, setJmUsername] = useState('');
   const [contactEmail, setContactEmail] = useState('');
+  const [bio, setBio] = useState('');
+  const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
   const [backgroundUrl, setBackgroundUrl] = useState('');
   const [customCss, setCustomCss] = useState('');
   const [saving, setSaving] = useState(false);
@@ -20,6 +22,8 @@ export default function SettingsPage() {
       setDisplayName(profile.displayName || '');
       setJmUsername(profile.jmUsername || '');
       setContactEmail(profile.contactEmail || profile.email || '');
+      setBio(profile.bio || '');
+      setSocialLinks(profile.socialLinks || []);
       setBackgroundUrl(profile.backgroundUrl || '');
       setCustomCss(profile.customCss || '');
     }
@@ -39,6 +43,8 @@ export default function SettingsPage() {
         displayName,
         jmUsername,
         contactEmail,
+        bio,
+        socialLinks,
         backgroundUrl,
         customCss
       });
@@ -49,6 +55,18 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleAddSocialLink = () => {
+    setSocialLinks([...socialLinks, { id: Date.now().toString(), icon: '🌐', label: '', url: '' }]);
+  };
+
+  const handleUpdateSocialLink = (id: string, field: keyof SocialLink, value: string) => {
+    setSocialLinks(socialLinks.map(link => link.id === id ? { ...link, [field]: value } : link));
+  };
+
+  const handleRemoveSocialLink = (id: string) => {
+    setSocialLinks(socialLinks.filter(link => link.id !== id));
   };
 
   return (
@@ -92,7 +110,72 @@ export default function SettingsPage() {
         </div>
 
         <div className="border-t border-[#eee] pt-6 mt-6">
-          <h2 className="text-lg font-serif font-light text-theme-ink mb-4">主页个性化</h2>
+          <h2 className="text-lg font-serif font-light text-theme-ink mb-4">主页展示资料</h2>
+
+          <div className="space-y-6">
+            <div>
+              <label className="block text-[13px] font-medium text-theme-ink mb-2">个性签名 / 简介</label>
+              <textarea 
+                value={bio} 
+                onChange={(e) => setBio(e.target.value)}
+                rows={4}
+                className="w-full px-4 py-2 bg-theme-search border border-[#eee] rounded-lg text-[14px] focus:bg-white focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none transition-all resize-none"
+                placeholder="向大家介绍一下你自己吧..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-medium text-theme-ink mb-2">社交链接 & 外部站点</label>
+              <div className="space-y-3 mb-3">
+                {socialLinks.map((link) => (
+                  <div key={link.id} className="flex items-center gap-2">
+                    <input 
+                      type="text" 
+                      value={link.icon} 
+                      onChange={(e) => handleUpdateSocialLink(link.id, 'icon', e.target.value)}
+                      className="w-12 px-2 py-2 text-center bg-theme-search border border-[#eee] rounded-lg text-[14px] focus:bg-white focus:border-theme-accent outline-none"
+                      placeholder="🐦"
+                      title="输入Emoji作为图标"
+                    />
+                    <input 
+                      type="text" 
+                      value={link.label} 
+                      onChange={(e) => handleUpdateSocialLink(link.id, 'label', e.target.value)}
+                      className="w-24 md:w-32 px-3 py-2 bg-theme-search border border-[#eee] rounded-lg text-[13px] focus:bg-white focus:border-theme-accent outline-none"
+                      placeholder="如: 推特"
+                    />
+                    <input 
+                      type="text" 
+                      value={link.url} 
+                      onChange={(e) => handleUpdateSocialLink(link.id, 'url', e.target.value)}
+                      className="flex-1 px-3 py-2 bg-theme-search border border-[#eee] rounded-lg text-[13px] focus:bg-white focus:border-theme-accent outline-none"
+                      placeholder="https://"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => handleRemoveSocialLink(link.id)}
+                      className="p-2 text-theme-muted hover:text-red-500 transition-colors rounded-lg hover:bg-red-50"
+                      title="移除链接"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button 
+                type="button" 
+                onClick={handleAddSocialLink}
+                className="flex items-center text-[12px] font-medium text-theme-accent hover:opacity-80 transition-opacity"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                添加链接
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-[#eee] pt-6 mt-6">
+          <h2 className="text-lg font-serif font-light text-theme-ink mb-4">主页个性化装扮</h2>
           
           <div className="space-y-6">
             <div>
