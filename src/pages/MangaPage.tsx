@@ -254,104 +254,157 @@ export default function MangaPage() {
         </div>
       </div>
 
-      {/* Reviews Section */}
-      <div className="space-y-8 pb-20">
-        <h2 className="text-[20px] font-serif text-theme-ink flex items-center border-b border-[#eee] pb-4">
-          <MessageSquareDashed className="w-5 h-5 mr-3 text-theme-accent" />
-          社区评价
-        </h2>
-
-        {/* Optional Add Review */}
-        {user ? (
-          <form onSubmit={handleSubmitReview} className="bg-white p-6 rounded-[12px] border border-[#eee] shadow-sm space-y-4">
-            <h3 className="text-[14px] font-semibold text-theme-ink">
-              {userReview ? '修改您的评论' : '发表评论'}
-            </h3>
+      {/* Rating & Reviews Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-20">
+        
+        {/* Left: Rating System */}
+        <div className="md:col-span-1 space-y-6">
+          <div className="bg-white p-6 rounded-[12px] shadow-theme-card border border-[#eee]">
+            <h2 className="text-[16px] font-serif text-theme-ink flex items-center mb-6">
+              <Star className="w-4 h-4 mr-2 text-theme-accent fill-current" />
+              作品评分
+            </h2>
             
-            <div className="flex items-center space-x-3 mb-4">
-              <span className="text-[13px] text-theme-muted">评分:</span>
-              <div className="flex">
+            {/* Rating Stats */}
+            <div className="text-center mb-6">
+              <div className="text-[48px] font-light text-theme-ink leading-none mb-2">
+                {avgRating > 0 ? avgRating.toFixed(1) : '-'}
+              </div>
+              <div className="flex justify-center text-theme-accent mb-1">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Star key={s} className={`w-4 h-4 ${avgRating >= s ? 'fill-current' : avgRating >= s - 0.5 ? 'fill-current opacity-50' : 'text-[#eee]'}`} />
+                ))}
+              </div>
+              <div className="text-[12px] text-theme-muted">{totalRatings} 人已评分</div>
+            </div>
+
+            {/* Distribution */}
+            <div className="space-y-2 mb-8">
+              {[5, 4, 3, 2, 1].map((stars) => {
+                const count = distribution[stars as keyof typeof distribution];
+                const percentage = totalRatings > 0 ? (count / totalRatings) * 100 : 0;
+                return (
+                  <div key={stars} className="flex items-center text-[12px]">
+                    <div className="w-8 text-theme-muted">{stars} 星</div>
+                    <div className="flex-1 h-2 bg-[#eee] rounded-full overflow-hidden mx-3">
+                      <div 
+                        className="h-full bg-theme-accent rounded-full" 
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                    <div className="w-8 text-right text-theme-muted">{count}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* User Rating Action */}
+            <div className="pt-6 border-t border-[#eee] text-center">
+              <div className="text-[13px] text-theme-ink font-medium mb-3">
+                {userRating > 0 ? '你的评分' : '给这部作品打分'}
+              </div>
+              <div className="flex justify-center space-x-1">
                 {[1, 2, 3, 4, 5].map((s) => (
                   <button 
                     key={s} 
-                    type="button" 
-                    onClick={() => setRating(s)}
-                    className={`p-1 transition-colors \${rating >= s ? 'text-theme-accent' : 'text-[#ddd]'} hover:text-theme-accent`}
+                    onClick={() => handleRate(s)}
+                    disabled={isRating}
+                    className={`p-1 transition-transform hover:scale-110 ${userRating >= s ? 'text-theme-accent' : 'text-[#ddd] hover:text-theme-accent/50'}`}
                   >
-                    <Star className={`w-5 h-5 \${rating >= s ? 'fill-current' : ''}`} />
+                    <Star className={`w-7 h-7 ${userRating >= s ? 'fill-current' : ''}`} />
                   </button>
                 ))}
               </div>
+              {!user && (
+                <p className="text-[11px] text-theme-muted mt-3">
+                  <button onClick={() => openAuthModal('login')} className="text-theme-accent hover:underline">登录</button> 后即可评分
+                </p>
+              )}
             </div>
+          </div>
+        </div>
 
-            <div className="mt-4">
-              <label className="block text-[12px] text-theme-muted mb-1">评论内容</label>
+        {/* Right: Comments System */}
+        <div className="md:col-span-2 space-y-6">
+          <h2 className="text-[20px] font-serif text-theme-ink flex items-center border-b border-[#eee] pb-4">
+            <MessageSquareDashed className="w-5 h-5 mr-3 text-theme-accent" />
+            讨论与留言
+          </h2>
+
+          {/* Comment Form */}
+          {user ? (
+            <form onSubmit={handleSubmitComment} className="bg-white p-6 rounded-[12px] border border-[#eee] shadow-sm">
               <textarea 
                 required
-                value={comment} onChange={(e) => setComment(e.target.value)}
-                placeholder="分享你的纯爱感想..."
+                value={userComment} 
+                onChange={(e) => setUserComment(e.target.value)}
+                placeholder="在此留下你的评论..."
                 rows={3}
-                className="w-full px-3 py-3 rounded border border-[#eee] bg-theme-search focus:bg-white focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none text-[13px] transition-all resize-none"
+                className="w-full px-4 py-3 rounded-lg border border-[#eee] bg-theme-search focus:bg-white focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none text-[13px] transition-all resize-none mb-3"
               />
-            </div>
-
-            <div className="flex justify-end pt-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] text-theme-muted">
+                  {userRating > 0 ? `将携带你的 ${userRating} 星评价发布` : '你尚未评分，将仅发布评论'}
+                </span>
+                <button 
+                  type="submit" 
+                  disabled={isCommenting || !userComment.trim()}
+                  className="px-6 py-2 bg-theme-ink text-white rounded text-[13px] font-medium hover:bg-black transition-colors disabled:opacity-50 flex items-center"
+                >
+                  {isCommenting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  发布评论
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="bg-theme-main border border-[#eee] rounded-lg p-6 text-center text-theme-muted text-[13px]">
+              <p className="mb-3">登录后参与讨论</p>
               <button 
-                type="submit" 
-                disabled={submitting}
-                className="px-6 py-2 bg-theme-ink text-white rounded text-[13px] font-medium hover:bg-black transition-colors disabled:opacity-50 flex items-center"
+                onClick={() => openAuthModal('login')}
+                className="px-6 py-2 bg-theme-accent text-white rounded text-[13px] font-medium hover:bg-theme-accent/90 transition-colors"
               >
-                {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {userReview ? '保存修改' : '提交评论'}
+                去登录
               </button>
             </div>
-          </form>
-        ) : (
-          <div className="bg-theme-main border border-[#eee] rounded-lg p-6 text-center text-theme-muted text-[13px]">
-            <p className="mb-3">请登录后发表评论</p>
-            <button 
-              onClick={() => openAuthModal('login')}
-              className="px-6 py-2 bg-theme-accent text-white rounded text-[13px] font-medium hover:bg-theme-accent/90 transition-colors"
-            >
-              去登录
-            </button>
-          </div>
-        )}
-
-        {/* Existing Reviews */}
-        <div className="space-y-4">
-          {reviews.length === 0 ? (
-            <p className="text-theme-muted text-[13px] text-center py-8">暂无评论，来做第一个吧！</p>
-          ) : (
-            reviews.map((r) => (
-              <div key={r.id} className="bg-white p-5 rounded-[12px] border border-[#eee] shadow-sm flex items-start space-x-4">
-                <div className="w-10 h-10 rounded-full bg-theme-bg border border-[#eee] flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  <User className="w-5 h-5 text-[#ccc]" />
-                </div>
-                <div className="flex-1 space-y-1">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-[14px] text-theme-ink flex items-center">
-                        <Link to={`/user/${r.userId}`} className="hover:text-theme-accent transition-colors">
-                          {r.customUsername || '匿名访客'}
-                        </Link>
-                        {r.jmUsername && <span className="ml-2 text-[11px] font-normal text-theme-muted bg-theme-bg px-2 py-0.5 rounded border border-[#eee]">JM: {r.jmUsername}</span>}
-                      </h4>
-                      <div className="flex items-center text-theme-accent mt-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className={`w-3 h-3 \${i < r.rating ? 'fill-current' : 'text-[#eee]'}`} />
-                        ))}
-                      </div>
-                    </div>
-                    <span className="text-[11px] text-theme-muted whitespace-nowrap ml-4">
-                      {format(new Date(r.createdAt), 'yyyy-MM-dd')}
-                    </span>
-                  </div>
-                  <p className="text-theme-ink mt-2 text-[13px] leading-relaxed whitespace-pre-wrap">{r.comment}</p>
-                </div>
-              </div>
-            ))
           )}
+
+          {/* Comments List */}
+          <div className="space-y-4 mt-8">
+            {commentsList.length === 0 ? (
+              <p className="text-theme-muted text-[13px] text-center py-8 bg-white rounded-xl border border-[#eee] border-dashed">暂无评论，来做第一个发言的人吧！</p>
+            ) : (
+              commentsList.map((r) => (
+                <div key={r.id} className="bg-white p-5 rounded-[12px] border border-[#eee] shadow-sm flex items-start space-x-4">
+                  <div className="w-10 h-10 rounded-full bg-theme-bg border border-[#eee] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <User className="w-5 h-5 text-[#ccc]" />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-semibold text-[14px] text-theme-ink flex items-center">
+                          <Link to={`/user/${r.userId}`} className="hover:text-theme-accent transition-colors">
+                            {r.customUsername || '匿名访客'}
+                          </Link>
+                          {r.jmUsername && <span className="ml-2 text-[11px] font-normal text-theme-muted bg-theme-bg px-2 py-0.5 rounded border border-[#eee]">JM: {r.jmUsername}</span>}
+                        </h4>
+                        {r.rating > 0 && (
+                          <div className="flex items-center text-theme-accent mt-1">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} className={`w-3 h-3 ${i < r.rating ? 'fill-current' : 'text-[#eee]'}`} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-theme-muted whitespace-nowrap ml-4">
+                        {format(new Date(r.createdAt), 'yyyy-MM-dd')}
+                      </span>
+                    </div>
+                    <p className="text-theme-ink mt-2 text-[13px] leading-relaxed whitespace-pre-wrap">{r.comment}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

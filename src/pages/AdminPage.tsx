@@ -185,14 +185,14 @@ export default function AdminPage() {
                    <p className="text-[12px] text-theme-muted">开启后，用户在提交时可勾选 R18 选项。勾选的作品在首页列表会模糊显示封面，详情页需点击后才可查看。</p>
                  </div>
                  <label className="relative inline-flex items-center cursor-pointer ml-4">
-                   <input 
-                     type="checkbox" 
-                     className="sr-only peer" 
-                     checked={settings.enableR18Blur}
-                     onChange={(e) => updateSettings({ enableR18Blur: e.target.checked })}
-                   />
-                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-theme-accent"></div>
-                 </label>
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={!!settings.enableR18Blur}
+                      onChange={(e) => updateSettings({ enableR18Blur: e.target.checked })}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-theme-accent pointer-events-none"></div>
+                  </label>
                </div>
              </div>
           </div>
