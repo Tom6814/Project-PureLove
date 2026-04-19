@@ -1,11 +1,5 @@
 {
-  "build": {
-    "command": "npm install && npm run build"
-  },
-  "deploy": {
-    "directory": "dist",
-    "routes": {
-      "/*": "/index.html"
-    }
-  }
+  "build_type": "nodejs",
+  "port": 3000,
+  "start_command": "npm run start"
 }
