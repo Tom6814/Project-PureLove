@@ -18,6 +18,7 @@ export default function SubmitPage() {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    review: '',
     coverUrl: '',
     authors: '',
     tags: '',
@@ -41,6 +42,7 @@ export default function SubmitPage() {
         setFormData({
           title: data.title || '',
           description: data.description || '',
+          review: '',
           coverUrl: data.coverUrl || '',
           authors: Array.isArray(data.authors) ? data.authors.join(', ') : (data.authors || ''),
           tags: Array.isArray(data.tags) ? data.tags.join(', ') : (data.tags || ''),
@@ -71,6 +73,7 @@ export default function SubmitPage() {
         jmId: preview.jmId,
         title: formData.title,
         description: formData.description,
+        review: formData.review,
         coverUrl: formData.coverUrl,
         authors: authorsArr.length ? authorsArr : ['Unknown'],
         tags: tagsArr.length ? tagsArr : [],
@@ -79,7 +82,11 @@ export default function SubmitPage() {
         submittedBy: user.uid,
         createdAt: new Date().toISOString()
       });
-      navigate('/');
+      setToastMessage('提交成功，请等待审核');
+      setTimeout(() => {
+        setToastMessage('');
+        navigate('/');
+      }, 2000);
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'mangas');
       setError('Failed to submit. Please try again.');
@@ -177,11 +184,22 @@ export default function SubmitPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[12px] font-medium text-theme-ink mb-1">简介 / 阅读感想</label>
+                  <label className="block text-[12px] font-medium text-theme-ink mb-1">简介 (来自 JMComic)</label>
                   <textarea 
                     value={formData.description}
                     onChange={(e) => setFormData({...formData, description: e.target.value})}
                     rows={4}
+                    className="w-full px-3 py-2 bg-theme-search border-none rounded-lg text-[13px] text-theme-ink focus:outline-none focus:ring-2 focus:ring-theme-accent/30 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-medium text-theme-ink mb-1">阅读感想 / 推荐语</label>
+                  <textarea 
+                    value={formData.review}
+                    onChange={(e) => setFormData({...formData, review: e.target.value})}
+                    rows={4}
+                    placeholder="分享一下你的阅读感想吧..."
                     className="w-full px-3 py-2 bg-theme-search border-none rounded-lg text-[13px] text-theme-ink focus:outline-none focus:ring-2 focus:ring-theme-accent/30 resize-none"
                   />
                 </div>
