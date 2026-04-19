@@ -10,6 +10,8 @@ export interface UserProfile {
   displayName: string;
   photoURL: string;
   role: 'user' | 'admin' | 'reviewer';
+  jmUsername?: string;
+  contactEmail?: string;
   createdAt: string;
 }
 

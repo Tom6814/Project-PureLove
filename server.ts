@@ -5,7 +5,7 @@ import crypto from 'crypto';
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const PORT = parseInt(process.env.PORT || '3000', 10);
 
   app.use(express.json());
 
@@ -101,13 +101,33 @@ async function startServer() {
         authors = [albumData.author];
       }
 
+      let finalCoverUrl = coverUrl;
+      try {
+        const coverResponse = await fetch(coverUrl, {
+          signal: AbortSignal.timeout(5000),
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+            'Referer': 'https://jmcomic.ltd/',
+          }
+        });
+        if (coverResponse.ok) {
+          const arrayBuffer = await coverResponse.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          const base64 = buffer.toString('base64');
+          const contentType = coverResponse.headers.get('content-type') || 'image/jpeg';
+          finalCoverUrl = `data:${contentType};base64,${base64}`;
+        }
+      } catch (err) {
+        console.log(`Failed to fetch cover image: ${(err as Error).message}`);
+      }
+
       res.json({
         success: true,
         data: {
           jmId: cleanId,
           title,
           description,
-          coverUrl,
+          coverUrl: finalCoverUrl,
           authors: authors.length ? authors : ['Unknown'],
           tags: tags.length ? tags : [],
           pages: parseInt(albumData.page_count || albumData.pages || "0") || 0

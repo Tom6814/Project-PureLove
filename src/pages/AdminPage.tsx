@@ -78,7 +78,7 @@ export default function AdminPage() {
     setStats(s => ({...s, totalPending: pending.length}));
   }, [pending]);
 
-  const handleUpdateStatus = async (mangaId: string, status: 'approved' | 'rejected') => {
+  const handleUpdateStatus = async (mangaId: string, status: 'approved' | 'rejected' | 'pending') => {
     try {
       await updateDoc(doc(db, 'mangas', mangaId), { status });
     } catch (error) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Star, MessageSquareDashed, User, Loader2 } from 'lucide-react';
@@ -11,14 +11,11 @@ export default function MangaPage() {
   const { id } = useParams<{ id: string }>();
   const [manga, setManga] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
-  const { user } = useAuth();
+  const { user, profile, openAuthModal } = useAuth();
   
   // Review form
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
-  const [customUsername, setCustomUsername] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [jmUsername, setJmUsername] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -53,9 +50,9 @@ export default function MangaPage() {
         userId: user.uid,
         rating,
         comment,
-        customUsername,
-        contactEmail,
-        jmUsername,
+        customUsername: profile?.displayName || user.displayName || '匿名用户',
+        contactEmail: profile?.contactEmail || profile?.email || user.email || '',
+        jmUsername: profile?.jmUsername || '',
         createdAt: new Date().toISOString(),
       });
       
@@ -102,7 +99,25 @@ export default function MangaPage() {
 
           <p className="text-theme-ink leading-relaxed text-[13px] whitespace-pre-wrap">{manga.description}</p>
           
-          <div className="grid grid-cols-2 gap-4 pt-4 text-[13px]">
+          {manga.review && (
+            <div className="mt-4 p-4 bg-theme-search rounded-lg border border-theme-accent/20">
+              <h3 className="text-[12px] font-bold text-theme-accent mb-2">推荐语 / 阅读感想</h3>
+              <p className="text-theme-ink leading-relaxed text-[13px] whitespace-pre-wrap">{manga.review}</p>
+            </div>
+          )}
+          
+          <div className="pt-4 pb-2">
+            <a 
+              href={`https://web.jmcomic.uk/detail/${manga.jmId}`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-6 py-2.5 bg-theme-accent text-white rounded-lg text-[14px] font-medium hover:opacity-90 transition-all shadow-sm"
+            >
+              前往观看
+            </a>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 pt-4 text-[13px] border-t border-[#eee]">
             <div>
               <span className="block text-theme-muted mb-1">作者</span>
               <span className="text-theme-ink font-medium">{manga.authors?.join(', ') || 'Unknown'}</span>
@@ -154,36 +169,6 @@ export default function MangaPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-[12px] text-theme-muted mb-1">显示名称</label>
-                <input 
-                  type="text" 
-                  value={customUsername} onChange={(e) => setCustomUsername(e.target.value)}
-                  placeholder="匿名"
-                  className="w-full px-3 py-2 rounded border border-[#eee] bg-theme-search focus:bg-white focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none text-[13px] transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-[12px] text-theme-muted mb-1">JM 用户名 (选填)</label>
-                <input 
-                  type="text" 
-                  value={jmUsername} onChange={(e) => setJmUsername(e.target.value)}
-                  placeholder="@jmuser"
-                  className="w-full px-3 py-2 rounded border border-[#eee] bg-theme-search focus:bg-white focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none text-[13px] transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-[12px] text-theme-muted mb-1">联系邮箱 (仅管理员可见)</label>
-                <input 
-                  type="email" 
-                  value={contactEmail} onChange={(e) => setContactEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  className="w-full px-3 py-2 rounded border border-[#eee] bg-theme-search focus:bg-white focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none text-[13px] transition-all"
-                />
-              </div>
-            </div>
-
             <div className="mt-4">
               <label className="block text-[12px] text-theme-muted mb-1">评论内容</label>
               <textarea 
@@ -208,7 +193,13 @@ export default function MangaPage() {
           </form>
         ) : (
           <div className="bg-theme-main border border-[#eee] rounded-lg p-6 text-center text-theme-muted text-[13px]">
-            请登录后发表评论
+            <p className="mb-3">请登录后发表评论</p>
+            <button 
+              onClick={() => openAuthModal('login')}
+              className="px-6 py-2 bg-theme-accent text-white rounded text-[13px] font-medium hover:bg-theme-accent/90 transition-colors"
+            >
+              去登录
+            </button>
           </div>
         )}
 

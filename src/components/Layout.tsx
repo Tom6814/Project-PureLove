@@ -95,15 +95,15 @@ const Header = () => {
           <div className="flex items-center space-x-4">
             {user ? (
               <div className="flex items-center space-x-4 text-[13px]">
-                <div className="flex items-center space-x-2">
+                <Link to="/settings" className="flex items-center space-x-2 hover:opacity-80 transition-opacity" title="个人设置">
                   <img 
                     src={profile?.photoURL || `https://ui-avatars.com/api/?name=${profile?.displayName}`} 
                     alt="User Avatar" 
                     className="w-7 h-7 rounded-full border border-[#eee]"
                     referrerPolicy="no-referrer"
                   />
-                  <span className="font-semibold text-theme-ink hidden sm:block">{profile?.displayName?.split(' ')[0]}</span>
-                </div>
+                  <span className="font-semibold text-theme-ink hidden sm:block">{profile?.displayName?.split(' ')[0] || '设置'}</span>
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="p-1.5 text-theme-muted hover:text-theme-accent transition-colors"
