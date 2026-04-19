@@ -8,10 +8,13 @@ import { AnimatePresence } from 'framer-motion';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthModalOpen, authMode, closeAuthModal } = useAuth();
+  const location = useLocation();
+  const isUserPage = location.pathname.startsWith('/user/');
+
   return (
     <div className="min-h-screen bg-theme-bg font-sans text-theme-ink selection:bg-theme-accent/20">
       <Header />
-      <main className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-10 py-10 bg-theme-main min-h-[calc(100vh-80px)] border-x border-[#eee]/50">
+      <main className={isUserPage ? "w-full min-h-[calc(100vh-80px)]" : "max-w-7xl mx-auto px-4 sm:px-8 lg:px-10 py-10 bg-theme-main min-h-[calc(100vh-80px)] border-x border-[#eee]/50"}>
         {children}
       </main>
 

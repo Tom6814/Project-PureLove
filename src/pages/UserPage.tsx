@@ -55,7 +55,7 @@ export default function UserPage() {
   return (
     <div 
       id="user-profile-container" 
-      className="min-h-[calc(100vh-160px)] relative"
+      className="min-h-[calc(100vh-80px)] relative w-full overflow-hidden"
     >
       {profile.customCss && (
         <style dangerouslySetInnerHTML={{ __html: profile.customCss }} />
@@ -64,11 +64,11 @@ export default function UserPage() {
       {/* Background Layer */}
       {profile.backgroundUrl ? (
         <div 
-          className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-20" 
-          style={{ backgroundImage: `url(${profile.backgroundUrl})` }}
+          className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat w-full h-full" 
+          style={{ backgroundImage: `url(${profile.backgroundUrl})`, opacity: 0.3 }}
         />
       ) : (
-        <div className="absolute inset-0 z-0 bg-gradient-to-br from-theme-accent/5 to-transparent" />
+        <div className="fixed inset-0 z-0 bg-gradient-to-br from-theme-accent/5 to-transparent w-full h-full" />
       )}
 
       {/* Content Layer */}
