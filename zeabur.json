@@ -1,5 +1,0 @@
-{
-  "build_type": "nodejs",
-  "port": 3000,
-  "start_command": "npm run start"
-}
