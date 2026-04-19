@@ -6,8 +6,10 @@ import { motion } from 'framer-motion';
 import { Heart, Search } from 'lucide-react';
 import { cn, getValidImageUrl } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { useSettings } from '../hooks/useSettings';
 
 export default function HomePage() {
+  const { settings } = useSettings();
   const [mangas, setMangas] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [minRating, setMinRating] = useState<number>(0);
@@ -123,9 +125,18 @@ export default function HomePage() {
                     <img 
                       src={getValidImageUrl(manga.coverUrl)} 
                       alt={manga.title}
-                      className="w-full h-full object-cover group-hover:opacity-90 transition-opacity duration-500"
+                      className={cn(
+                        "w-full h-full object-cover group-hover:opacity-90 transition-all duration-500",
+                        settings.enableR18Blur && manga.isR18 ? "blur-xl scale-110" : ""
+                      )}
                       referrerPolicy="no-referrer"
                     />
+                    {settings.enableR18Blur && manga.isR18 && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 text-white p-2 text-center pointer-events-none">
+                        <span className="bg-red-500/80 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider mb-1">R18</span>
+                        <span className="text-[11px] font-medium shadow-black drop-shadow-md">敏感内容已模糊</span>
+                      </div>
+                    )}
                   </div>
                   <div className="p-[15px]">
                     <div className="font-semibold text-[14px] text-theme-ink mb-1 whitespace-nowrap overflow-hidden text-ellipsis" title={manga.title}>

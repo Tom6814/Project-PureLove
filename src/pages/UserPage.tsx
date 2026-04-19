@@ -4,14 +4,16 @@ import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebas
 import { db } from '../lib/firebase';
 import { UserProfile } from '../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
-import { getValidImageUrl } from '../lib/utils';
+import { getValidImageUrl, cn } from '../lib/utils';
 import { format } from 'date-fns';
+import { useSettings } from '../hooks/useSettings';
 
 export default function UserPage() {
   const { id } = useParams<{ id: string }>();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [mangas, setMangas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { settings } = useSettings();
 
   useEffect(() => {
     if (!id) return;
@@ -143,9 +145,18 @@ export default function UserPage() {
                     <img 
                       src={getValidImageUrl(manga.coverUrl)} 
                       alt={manga.title}
-                      className="w-full h-full object-cover group-hover:opacity-90 transition-opacity duration-500"
+                      className={cn(
+                        "w-full h-full object-cover group-hover:opacity-90 transition-all duration-500",
+                        settings.enableR18Blur && manga.isR18 ? "blur-xl scale-110" : ""
+                      )}
                       referrerPolicy="no-referrer"
                     />
+                    {settings.enableR18Blur && manga.isR18 && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 text-white p-2 text-center pointer-events-none">
+                        <span className="bg-red-500/80 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider mb-1">R18</span>
+                        <span className="text-[11px] font-medium shadow-black drop-shadow-md">敏感内容已模糊</span>
+                      </div>
+                    )}
                   </div>
                   <div className="p-3">
                     <div className="font-medium text-[13px] text-theme-ink mb-1 whitespace-nowrap overflow-hidden text-ellipsis" title={manga.title}>

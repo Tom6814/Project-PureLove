@@ -6,13 +6,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { Star, MessageSquareDashed, User, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { getValidImageUrl } from '../lib/utils';
+import { getValidImageUrl, cn } from '../lib/utils';
+import { useSettings } from '../hooks/useSettings';
 
 export default function MangaPage() {
   const { id } = useParams<{ id: string }>();
   const [manga, setManga] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const { user, profile, openAuthModal } = useAuth();
+  const { settings } = useSettings();
+  const [revealR18, setRevealR18] = useState(false);
   
   // Review form
   const [rating, setRating] = useState(5);
@@ -116,12 +119,29 @@ export default function MangaPage() {
       {/* Detail Head */}
       <div className="flex flex-col md:flex-row gap-8 bg-white p-6 sm:p-8 rounded-[12px] shadow-theme-card border border-[#eee] relative overflow-hidden">
         <div className="w-full md:w-[220px] flex-shrink-0 relative z-10">
-          <img 
-            src={getValidImageUrl(manga.coverUrl)} 
-            alt={manga.title} 
-            className="w-full aspect-[2/3] object-cover rounded-md shadow-sm border border-[#eee] bg-[#e5e5e5]"
-            referrerPolicy="no-referrer"
-          />
+          <div className="relative w-full aspect-[2/3] rounded-md shadow-sm border border-[#eee] bg-[#e5e5e5] overflow-hidden">
+            <img 
+              src={getValidImageUrl(manga.coverUrl)} 
+              alt={manga.title} 
+              className={cn(
+                "w-full h-full object-cover transition-all duration-500",
+                settings.enableR18Blur && manga.isR18 && !revealR18 ? "blur-2xl scale-110" : ""
+              )}
+              referrerPolicy="no-referrer"
+            />
+            {settings.enableR18Blur && manga.isR18 && !revealR18 && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 backdrop-blur-sm p-4 text-center">
+                <span className="bg-red-500/90 text-white px-3 py-1 rounded-md text-[12px] font-bold tracking-wider mb-3 shadow-sm">R18 内容</span>
+                <p className="text-white/90 text-[12px] font-medium mb-4 shadow-black drop-shadow-md">此封面可能包含露骨内容</p>
+                <button 
+                  onClick={() => setRevealR18(true)}
+                  className="px-5 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 rounded-lg text-white text-[13px] font-medium transition-all"
+                >
+                  点击显示封面
+                </button>
+              </div>
+            )}
+          </div>
           {manga.submittedByName && (
             <div className="mt-3 text-center">
               <span className="text-[11px] text-theme-muted uppercase tracking-wide">推荐者</span>

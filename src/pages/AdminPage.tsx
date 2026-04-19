@@ -4,10 +4,12 @@ import { db } from '../lib/firebase';
 import { Check, X, Loader2, BookOpen, Trash2, LayoutDashboard, Users, BookHeart, AlertCircle } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { useAuth } from '../contexts/AuthContext';
-import { getValidImageUrl } from '../lib/utils';
+import { getValidImageUrl, cn } from '../lib/utils';
+import { useSettings } from '../hooks/useSettings';
 
 export default function AdminPage() {
   const { isAdmin, isReviewer } = useAuth();
+  const { settings, updateSettings } = useSettings();
   const [activeTab, setActiveTab] = useState<'overview' | 'submissions' | 'reviewers' | 'catalog'>('overview');
   const [pending, setPending] = useState<any[]>([]);
   const [catalog, setCatalog] = useState<any[]>([]);
@@ -172,9 +174,27 @@ export default function AdminPage() {
           <div className="bg-theme-main rounded-[12px] p-8 border border-[#eee] text-center">
              <LayoutDashboard className="w-10 h-10 text-theme-muted mx-auto mb-4 opacity-50" />
              <h3 className="text-theme-ink font-medium mb-2">Welcome to your Dashboard</h3>
-             <p className="text-theme-muted text-[13px] max-w-md mx-auto leading-relaxed">
+             <p className="text-theme-muted text-[13px] max-w-md mx-auto leading-relaxed mb-6">
                As an administrator, you have full control over the platform's content and personnel. Keep the environment clean and pure by reviewing submissions carefully.
              </p>
+
+             <div className="max-w-md mx-auto bg-white p-4 rounded-lg border border-[#eee] text-left">
+               <div className="flex items-center justify-between">
+                 <div>
+                   <h4 className="text-[14px] font-medium text-theme-ink mb-1">R18 封面模糊</h4>
+                   <p className="text-[12px] text-theme-muted">开启后，用户在提交时可勾选 R18 选项。勾选的作品在首页列表会模糊显示封面，详情页需点击后才可查看。</p>
+                 </div>
+                 <label className="relative inline-flex items-center cursor-pointer ml-4">
+                   <input 
+                     type="checkbox" 
+                     className="sr-only peer" 
+                     checked={settings.enableR18Blur}
+                     onChange={(e) => updateSettings({ enableR18Blur: e.target.checked })}
+                   />
+                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-theme-accent"></div>
+                 </label>
+               </div>
+             </div>
           </div>
         </div>
       )}
@@ -189,12 +209,22 @@ export default function AdminPage() {
           <ul className="divide-y divide-[#eee]">
             {pending.map((manga) => (
               <li key={manga.id} className="p-6 flex flex-col md:flex-row gap-6 hover:bg-theme-main transition-colors">
-                <img 
-                  src={getValidImageUrl(manga.coverUrl)} 
-                  alt="" 
-                  className="w-[100px] h-[150px] object-cover rounded-md border border-[#eee]"
-                  referrerPolicy="no-referrer"
-                />
+                <div className="relative w-[100px] h-[150px] flex-shrink-0">
+                  <img 
+                    src={getValidImageUrl(manga.coverUrl)} 
+                    alt="" 
+                    className={cn(
+                      "w-full h-full object-cover rounded-md border border-[#eee]",
+                      settings.enableR18Blur && manga.isR18 ? "blur-md" : ""
+                    )}
+                    referrerPolicy="no-referrer"
+                  />
+                  {settings.enableR18Blur && manga.isR18 && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-md">
+                      <span className="bg-red-500/80 text-white px-1.5 py-0.5 rounded text-[10px] font-bold">R18</span>
+                    </div>
+                  )}
+                </div>
                 <div className="flex-1 space-y-2">
                   <h3 className="font-semibold text-[15px] leading-tight text-theme-ink">{manga.title}</h3>
                   <p className="text-[12px] text-theme-accent font-mono bg-theme-bg inline-block px-2 py-1 rounded border border-[#eee]">JM ID: {manga.jmId}</p>
@@ -240,12 +270,22 @@ export default function AdminPage() {
           <ul className="divide-y divide-[#eee]">
             {catalog.map((manga) => (
               <li key={manga.id} className="p-6 flex flex-col md:flex-row gap-6 hover:bg-theme-main transition-colors">
-                <img 
-                  src={getValidImageUrl(manga.coverUrl)} 
-                  alt="" 
-                  className="w-[80px] h-[120px] object-cover rounded-md border border-[#eee]"
-                  referrerPolicy="no-referrer"
-                />
+                <div className="relative w-[80px] h-[120px] flex-shrink-0">
+                  <img 
+                    src={getValidImageUrl(manga.coverUrl)} 
+                    alt="" 
+                    className={cn(
+                      "w-full h-full object-cover rounded-md border border-[#eee]",
+                      settings.enableR18Blur && manga.isR18 ? "blur-md" : ""
+                    )}
+                    referrerPolicy="no-referrer"
+                  />
+                  {settings.enableR18Blur && manga.isR18 && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-md">
+                      <span className="bg-red-500/80 text-white px-1.5 py-0.5 rounded text-[10px] font-bold">R18</span>
+                    </div>
+                  )}
+                </div>
                 <div className="flex-1 space-y-2">
                   <h3 className="font-semibold text-[15px] leading-tight text-theme-ink">{manga.title}</h3>
                   <p className="text-[12px] text-theme-accent font-mono bg-theme-bg inline-block px-2 py-1 rounded border border-[#eee]">JM ID: {manga.jmId}</p>

@@ -7,6 +7,7 @@ import axios from 'axios';
 import { Info, Send, Loader2, CheckCircle } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { getValidImageUrl } from '../lib/utils';
+import { useSettings } from '../hooks/useSettings';
 
 export default function SubmitPage() {
   const [jmId, setJmId] = useState('');
@@ -27,6 +28,8 @@ export default function SubmitPage() {
   
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { settings } = useSettings();
+  const [isR18, setIsR18] = useState(false);
 
   const handleFetch = async () => {
     if (!jmId) return;
@@ -79,6 +82,7 @@ export default function SubmitPage() {
         authors: authorsArr.length ? authorsArr : ['Unknown'],
         tags: tagsArr.length ? tagsArr : [],
         pages: preview.pages || 0,
+        isR18: settings.enableR18Blur ? isR18 : false,
         status: 'pending',
         submittedBy: user.uid,
         submittedByName: user.displayName || '匿名用户',
@@ -205,6 +209,28 @@ export default function SubmitPage() {
                     className="w-full px-3 py-2 bg-theme-search border-none rounded-lg text-[13px] text-theme-ink focus:outline-none focus:ring-2 focus:ring-theme-accent/30 resize-none"
                   />
                 </div>
+
+                {settings.enableR18Blur && (
+                  <div className="flex items-start space-x-3 bg-red-50 p-4 rounded-lg border border-red-100">
+                    <div className="flex items-center h-5">
+                      <input
+                        id="isR18"
+                        type="checkbox"
+                        checked={isR18}
+                        onChange={(e) => setIsR18(e.target.checked)}
+                        className="w-4 h-4 text-theme-accent bg-white border-red-200 rounded focus:ring-theme-accent focus:ring-2"
+                      />
+                    </div>
+                    <div className="flex flex-col">
+                      <label htmlFor="isR18" className="text-[13px] font-medium text-red-800">
+                        R18 封面警告
+                      </label>
+                      <p className="text-[12px] text-red-600 mt-1">
+                        如果封面包含露骨内容，请务必勾选此项，否则可能无法过审。
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="mt-5 pt-5 border-t border-[#eee] flex justify-end">
