@@ -104,36 +104,38 @@ async function startServer() {
       }
 
       let finalCoverUrl = coverUrl;
-      try {
-        const coverObj = new URL(coverUrl);
-        const apiObj = new URL(successfulBaseUrl);
-        coverObj.host = apiObj.host;
-        const fetchCoverUrl = coverObj.toString();
-
-        const coverResponse = await fetch(fetchCoverUrl, {
-          signal: AbortSignal.timeout(10000),
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'Referer': 'https://jmcomic.ltd/',
-          }
-        });
-        if (coverResponse.ok) {
-          const arrayBuffer = await coverResponse.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          const base64 = buffer.toString('base64');
-          const contentType = coverResponse.headers.get('content-type') || 'image/jpeg';
-          finalCoverUrl = `data:${contentType};base64,${base64}`;
-        } else {
-          finalCoverUrl = fetchCoverUrl;
-        }
-      } catch (err) {
-        console.log(`Failed to fetch cover image: ${(err as Error).message}`);
+      const mediaNodes = [
+        'https://www.cdnhjk.net',
+        'https://cdn-us.jmapiproxy.vip',
+        'https://cdn-hk.jmapiproxy.vip'
+      ];
+      
+      let fetchedBase64 = false;
+      for (const node of mediaNodes) {
+        if (fetchedBase64) break;
         try {
           const coverObj = new URL(coverUrl);
-          const apiObj = new URL(successfulBaseUrl);
-          coverObj.host = apiObj.host;
-          finalCoverUrl = coverObj.toString();
-        } catch(e) {}
+          const fetchCoverUrl = `${node}${coverObj.pathname}`;
+          
+          const coverResponse = await fetch(fetchCoverUrl, {
+            signal: AbortSignal.timeout(8000),
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+              'Referer': 'https://jmcomic.ltd/',
+            }
+          });
+          
+          if (coverResponse.ok) {
+            const arrayBuffer = await coverResponse.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            const base64 = buffer.toString('base64');
+            const contentType = coverResponse.headers.get('content-type') || 'image/jpeg';
+            finalCoverUrl = `data:${contentType};base64,${base64}`;
+            fetchedBase64 = true;
+          }
+        } catch (err) {
+          console.log(`Failed to fetch cover image from ${node}: ${(err as Error).message}`);
+        }
       }
 
       res.json({
