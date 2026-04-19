@@ -17,27 +17,39 @@ export default function MangaPage() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [userReview, setUserReview] = useState<any>(null);
+
+  useEffect(() => {
+    if (user && reviews.length > 0 && !userReview) {
+      const existing = reviews.find(r => r.userId === user.uid);
+      if (existing) {
+        setUserReview(existing);
+        setRating(existing.rating);
+        setComment(existing.comment);
+      }
+    }
+  }, [user, reviews, userReview]);
 
   useEffect(() => {
     if (!id) return;
-    const fetchManga = async () => {
-      try {
-        const docSnap = await getDoc(doc(db, 'mangas', id));
-        if (docSnap.exists()) {
-          setManga({ id: docSnap.id, ...docSnap.data() });
-        }
-      } catch (err) {
-        handleFirestoreError(err, OperationType.GET, `mangas/${id}`);
+    
+    const unsubscribeManga = onSnapshot(doc(db, 'mangas', id), (docSnap) => {
+      if (docSnap.exists()) {
+        setManga({ id: docSnap.id, ...docSnap.data() });
       }
-    };
-    fetchManga();
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, `mangas/${id}`);
+    });
 
     const q = query(collection(db, 'reviews'), where('mangaId', '==', id), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeReviews = onSnapshot(q, (snapshot) => {
       setReviews(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'reviews'));
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeManga();
+      unsubscribeReviews();
+    };
   }, [id]);
 
   const handleSubmitReview = async (e: React.FormEvent) => {
@@ -45,7 +57,9 @@ export default function MangaPage() {
     if (!user || !id) return;
     setSubmitting(true);
     try {
-      await addDoc(collection(db, 'reviews'), {
+      const isUpdating = !!userReview;
+      
+      const reviewData = {
         mangaId: id,
         userId: user.uid,
         rating,
@@ -53,21 +67,42 @@ export default function MangaPage() {
         customUsername: profile?.displayName || user.displayName || '匿名用户',
         contactEmail: profile?.contactEmail || profile?.email || user.email || '',
         jmUsername: profile?.jmUsername || '',
-        createdAt: new Date().toISOString(),
-      });
+      };
+
+      if (isUpdating) {
+        await updateDoc(doc(db, 'reviews', userReview.id), {
+          ...reviewData,
+          updatedAt: new Date().toISOString(),
+        });
+      } else {
+        await addDoc(collection(db, 'reviews'), {
+          ...reviewData,
+          createdAt: new Date().toISOString(),
+        });
+      }
       
-      // Update overall manga rating (basic implementation, not atomic for simplicity in this demo)
-      const newReviewCount = (manga.reviewCount || 0) + 1;
-      const newAvgRating = (((manga.averageRating || 0) * (manga.reviewCount || 0)) + rating) / newReviewCount;
+      // Update overall manga rating based on all reviews
+      let totalRating = 0;
+      let newReviewCount = isUpdating ? reviews.length : reviews.length + 1;
+      
+      if (isUpdating) {
+        totalRating = reviews.reduce((sum, r) => sum + (r.id === userReview.id ? rating : r.rating), 0);
+      } else {
+        totalRating = reviews.reduce((sum, r) => sum + r.rating, 0) + rating;
+      }
+      
+      const newAvgRating = totalRating / newReviewCount;
       
       await updateDoc(doc(db, 'mangas', id), {
         averageRating: newAvgRating,
         reviewCount: newReviewCount
       });
 
-      setComment(''); setRating(5);
+      if (!isUpdating) {
+        setComment(''); setRating(5);
+      }
     } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, 'reviews');
+      handleFirestoreError(err, isUpdating ? OperationType.UPDATE : OperationType.CREATE, 'reviews');
     } finally {
       setSubmitting(false);
     }
@@ -151,7 +186,9 @@ export default function MangaPage() {
         {/* Optional Add Review */}
         {user ? (
           <form onSubmit={handleSubmitReview} className="bg-white p-6 rounded-[12px] border border-[#eee] shadow-sm space-y-4">
-            <h3 className="text-[14px] font-semibold text-theme-ink">发表评论</h3>
+            <h3 className="text-[14px] font-semibold text-theme-ink">
+              {userReview ? '修改您的评论' : '发表评论'}
+            </h3>
             
             <div className="flex items-center space-x-3 mb-4">
               <span className="text-[13px] text-theme-muted">评分:</span>
@@ -187,7 +224,7 @@ export default function MangaPage() {
                 className="px-6 py-2 bg-theme-ink text-white rounded text-[13px] font-medium hover:bg-black transition-colors disabled:opacity-50 flex items-center"
               >
                 {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                提交评论
+                {userReview ? '保存修改' : '提交评论'}
               </button>
             </div>
           </form>
