@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { doc, getDoc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -125,9 +125,15 @@ export default function MangaPage() {
           {manga.submittedByName && (
             <div className="mt-3 text-center">
               <span className="text-[11px] text-theme-muted uppercase tracking-wide">推荐者</span>
-              <p className="text-[12px] font-medium text-theme-ink mt-0.5 truncate px-2" title={manga.submittedByName}>
-                {manga.submittedByName}
-              </p>
+              {manga.submittedBy ? (
+                <Link to={`/user/${manga.submittedBy}`} className="block text-[12px] font-medium text-theme-ink mt-0.5 truncate px-2 hover:text-theme-accent transition-colors" title={manga.submittedByName}>
+                  {manga.submittedByName}
+                </Link>
+              ) : (
+                <p className="text-[12px] font-medium text-theme-ink mt-0.5 truncate px-2" title={manga.submittedByName}>
+                  {manga.submittedByName}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -263,7 +269,9 @@ export default function MangaPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-semibold text-[14px] text-theme-ink flex items-center">
-                        {r.customUsername || '匿名访客'}
+                        <Link to={`/user/${r.userId}`} className="hover:text-theme-accent transition-colors">
+                          {r.customUsername || '匿名访客'}
+                        </Link>
                         {r.jmUsername && <span className="ml-2 text-[11px] font-normal text-theme-muted bg-theme-bg px-2 py-0.5 rounded border border-[#eee]">JM: {r.jmUsername}</span>}
                       </h4>
                       <div className="flex items-center text-theme-accent mt-1">

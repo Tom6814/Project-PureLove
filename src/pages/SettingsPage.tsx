@@ -10,6 +10,8 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState('');
   const [jmUsername, setJmUsername] = useState('');
   const [contactEmail, setContactEmail] = useState('');
+  const [backgroundUrl, setBackgroundUrl] = useState('');
+  const [customCss, setCustomCss] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -18,6 +20,8 @@ export default function SettingsPage() {
       setDisplayName(profile.displayName || '');
       setJmUsername(profile.jmUsername || '');
       setContactEmail(profile.contactEmail || profile.email || '');
+      setBackgroundUrl(profile.backgroundUrl || '');
+      setCustomCss(profile.customCss || '');
     }
   }, [profile]);
 
@@ -34,7 +38,9 @@ export default function SettingsPage() {
       await updateDoc(userRef, {
         displayName,
         jmUsername,
-        contactEmail
+        contactEmail,
+        backgroundUrl,
+        customCss
       });
       setMessage('个人资料保存成功！');
       setTimeout(() => setMessage(''), 3000);
@@ -83,6 +89,39 @@ export default function SettingsPage() {
             placeholder="name@example.com"
           />
           <p className="text-[12px] text-theme-muted mt-1">仅管理员可见，用于联系</p>
+        </div>
+
+        <div className="border-t border-[#eee] pt-6 mt-6">
+          <h2 className="text-lg font-serif font-light text-theme-ink mb-4">主页个性化</h2>
+          
+          <div className="space-y-6">
+            <div>
+              <label className="block text-[13px] font-medium text-theme-ink mb-2">背景图片 URL</label>
+              <input 
+                type="text" 
+                value={backgroundUrl} 
+                onChange={(e) => setBackgroundUrl(e.target.value)}
+                className="w-full px-4 py-2 bg-theme-search border border-[#eee] rounded-lg text-[14px] focus:bg-white focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none transition-all"
+                placeholder="https://example.com/bg.jpg"
+              />
+              <p className="text-[12px] text-theme-muted mt-1">留空则使用默认背景</p>
+            </div>
+
+            <div>
+              <label className="block text-[13px] font-medium text-theme-ink mb-2">自定义 CSS</label>
+              <textarea 
+                value={customCss} 
+                onChange={(e) => setCustomCss(e.target.value)}
+                rows={6}
+                className="w-full px-4 py-3 bg-theme-search border border-[#eee] rounded-lg text-[13px] font-mono focus:bg-white focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none transition-all"
+                placeholder={`#user-profile-container {
+  /* 在此输入你的自定义 CSS */
+  color: #ff0000;
+}`}
+              />
+              <p className="text-[12px] text-theme-muted mt-1">你可以在此为你的个人主页添加自定义样式，作用域为 <code className="bg-[#eee] px-1 py-0.5 rounded">#user-profile-container</code></p>
+            </div>
+          </div>
         </div>
 
         <div className="pt-4 flex items-center justify-between">

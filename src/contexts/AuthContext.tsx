@@ -12,6 +12,8 @@ export interface UserProfile {
   role: 'user' | 'admin' | 'reviewer';
   jmUsername?: string;
   contactEmail?: string;
+  backgroundUrl?: string;
+  customCss?: string;
   createdAt: string;
 }
 
