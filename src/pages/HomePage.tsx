@@ -127,15 +127,12 @@ export default function HomePage() {
                       alt={manga.title}
                       className={cn(
                         "w-full h-full object-cover group-hover:opacity-90 transition-all duration-500",
-                        settings.enableR18Blur && manga.isR18 ? "blur-xl scale-110" : ""
+                        settings.enableR18Blur && manga.isR18 ? "blur-md scale-105" : ""
                       )}
                       referrerPolicy="no-referrer"
                     />
                     {settings.enableR18Blur && manga.isR18 && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 text-white p-2 text-center pointer-events-none">
-                        <span className="bg-red-500/80 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider mb-1">R18</span>
-                        <span className="text-[11px] font-medium shadow-black drop-shadow-md">敏感内容已模糊</span>
-                      </div>
+                      <span className="absolute top-2 right-2 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider shadow-sm pointer-events-none">R18</span>
                     )}
                   </div>
                   <div className="p-[15px]">

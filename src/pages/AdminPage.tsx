@@ -215,14 +215,12 @@ export default function AdminPage() {
                     alt="" 
                     className={cn(
                       "w-full h-full object-cover rounded-md border border-[#eee]",
-                      settings.enableR18Blur && manga.isR18 ? "blur-md" : ""
+                      settings.enableR18Blur && manga.isR18 ? "blur-md scale-105" : ""
                     )}
                     referrerPolicy="no-referrer"
                   />
                   {settings.enableR18Blur && manga.isR18 && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-md">
-                      <span className="bg-red-500/80 text-white px-1.5 py-0.5 rounded text-[10px] font-bold">R18</span>
-                    </div>
+                    <span className="absolute top-1 right-1 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm pointer-events-none">R18</span>
                   )}
                 </div>
                 <div className="flex-1 space-y-2">
@@ -276,14 +274,12 @@ export default function AdminPage() {
                     alt="" 
                     className={cn(
                       "w-full h-full object-cover rounded-md border border-[#eee]",
-                      settings.enableR18Blur && manga.isR18 ? "blur-md" : ""
+                      settings.enableR18Blur && manga.isR18 ? "blur-md scale-105" : ""
                     )}
                     referrerPolicy="no-referrer"
                   />
                   {settings.enableR18Blur && manga.isR18 && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-md">
-                      <span className="bg-red-500/80 text-white px-1.5 py-0.5 rounded text-[10px] font-bold">R18</span>
-                    </div>
+                    <span className="absolute top-1 right-1 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm pointer-events-none">R18</span>
                   )}
                 </div>
                 <div className="flex-1 space-y-2">

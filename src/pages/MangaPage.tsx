@@ -17,10 +17,11 @@ export default function MangaPage() {
   const { settings } = useSettings();
   const [revealR18, setRevealR18] = useState(false);
   
-  // Review form
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  // Interaction form states
+  const [userRating, setUserRating] = useState(0);
+  const [userComment, setUserComment] = useState('');
+  const [isRating, setIsRating] = useState(false);
+  const [isCommenting, setIsCommenting] = useState(false);
   const [userReview, setUserReview] = useState<any>(null);
 
   useEffect(() => {
@@ -28,8 +29,8 @@ export default function MangaPage() {
       const existing = reviews.find(r => r.userId === user.uid);
       if (existing) {
         setUserReview(existing);
-        setRating(existing.rating);
-        setComment(existing.comment);
+        setUserRating(existing.rating || 0);
+        setUserComment(existing.comment || '');
       }
     }
   }, [user, reviews, userReview]);
@@ -56,18 +57,68 @@ export default function MangaPage() {
     };
   }, [id]);
 
-  const handleSubmitReview = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !id) return;
-    setSubmitting(true);
-    const isUpdating = !!userReview;
+  const handleRate = async (val: number) => {
+    if (!user || !id) return openAuthModal('login');
+    setIsRating(true);
+    setUserRating(val); // Optimistic UI update
+
     try {
-      
+      const isUpdating = !!userReview;
       const reviewData = {
         mangaId: id,
         userId: user.uid,
-        rating,
-        comment,
+        rating: val,
+        customUsername: profile?.displayName || user.displayName || '匿名用户',
+        contactEmail: profile?.contactEmail || profile?.email || user.email || '',
+        jmUsername: profile?.jmUsername || '',
+      };
+
+      let newReviewId = userReview?.id;
+
+      if (isUpdating) {
+        await updateDoc(doc(db, 'reviews', userReview.id), {
+          ...reviewData,
+          updatedAt: new Date().toISOString(),
+        });
+      } else {
+        const docRef = await addDoc(collection(db, 'reviews'), {
+          ...reviewData,
+          comment: userComment || '',
+          createdAt: new Date().toISOString(),
+        });
+        newReviewId = docRef.id;
+        setUserReview({ id: newReviewId, ...reviewData, comment: userComment || '' });
+      }
+
+      // Recalculate average
+      const otherReviews = reviews.filter(r => r.userId !== user.uid && r.rating > 0);
+      const allRatings = [...otherReviews, { rating: val }];
+      const totalRating = allRatings.reduce((sum, r) => sum + r.rating, 0);
+      const newAvgRating = allRatings.length > 0 ? totalRating / allRatings.length : 0;
+      
+      await updateDoc(doc(db, 'mangas', id), {
+        averageRating: newAvgRating,
+        reviewCount: allRatings.length
+      });
+
+    } catch (err) {
+      handleFirestoreError(err, isUpdating ? OperationType.UPDATE : OperationType.CREATE, 'reviews');
+    } finally {
+      setIsRating(false);
+    }
+  };
+
+  const handleSubmitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !id) return openAuthModal('login');
+    setIsCommenting(true);
+    
+    try {
+      const isUpdating = !!userReview;
+      const reviewData = {
+        mangaId: id,
+        userId: user.uid,
+        comment: userComment,
         customUsername: profile?.displayName || user.displayName || '匿名用户',
         contactEmail: profile?.contactEmail || profile?.email || user.email || '',
         jmUsername: profile?.jmUsername || '',
@@ -79,38 +130,32 @@ export default function MangaPage() {
           updatedAt: new Date().toISOString(),
         });
       } else {
-        await addDoc(collection(db, 'reviews'), {
+        const docRef = await addDoc(collection(db, 'reviews'), {
           ...reviewData,
+          rating: userRating || 0,
           createdAt: new Date().toISOString(),
         });
-      }
-      
-      // Update overall manga rating based on all reviews
-      let totalRating = 0;
-      let newReviewCount = isUpdating ? reviews.length : reviews.length + 1;
-      
-      if (isUpdating) {
-        totalRating = reviews.reduce((sum, r) => sum + (r.id === userReview.id ? rating : r.rating), 0);
-      } else {
-        totalRating = reviews.reduce((sum, r) => sum + r.rating, 0) + rating;
-      }
-      
-      const newAvgRating = totalRating / newReviewCount;
-      
-      await updateDoc(doc(db, 'mangas', id), {
-        averageRating: newAvgRating,
-        reviewCount: newReviewCount
-      });
-
-      if (!isUpdating) {
-        setComment(''); setRating(5);
+        setUserReview({ id: docRef.id, ...reviewData, rating: userRating || 0 });
       }
     } catch (err) {
       handleFirestoreError(err, isUpdating ? OperationType.UPDATE : OperationType.CREATE, 'reviews');
     } finally {
-      setSubmitting(false);
+      setIsCommenting(false);
     }
   };
+
+  // Calculate rating stats
+  const ratedReviews = reviews.filter(r => r.rating && r.rating > 0);
+  const totalRatings = ratedReviews.length;
+  const avgRating = totalRatings > 0 ? ratedReviews.reduce((acc, r) => acc + r.rating, 0) / totalRatings : 0;
+  const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+  ratedReviews.forEach(r => {
+    if (r.rating >= 1 && r.rating <= 5) {
+      distribution[r.rating as keyof typeof distribution]++;
+    }
+  });
+
+  const commentsList = reviews.filter(r => r.comment && r.comment.trim() !== '');
 
   if (!manga) return <div className="p-20 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-pink-500" /></div>;
 
@@ -125,19 +170,17 @@ export default function MangaPage() {
               alt={manga.title} 
               className={cn(
                 "w-full h-full object-cover transition-all duration-500",
-                settings.enableR18Blur && manga.isR18 && !revealR18 ? "blur-2xl scale-110" : ""
+                settings.enableR18Blur && manga.isR18 && !revealR18 ? "blur-xl scale-105" : ""
               )}
               referrerPolicy="no-referrer"
             />
             {settings.enableR18Blur && manga.isR18 && !revealR18 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 backdrop-blur-sm p-4 text-center">
-                <span className="bg-red-500/90 text-white px-3 py-1 rounded-md text-[12px] font-bold tracking-wider mb-3 shadow-sm">R18 内容</span>
-                <p className="text-white/90 text-[12px] font-medium mb-4 shadow-black drop-shadow-md">此封面可能包含露骨内容</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/10 p-4 text-center">
                 <button 
                   onClick={() => setRevealR18(true)}
-                  className="px-5 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 rounded-lg text-white text-[13px] font-medium transition-all"
+                  className="px-4 py-2 bg-white/60 hover:bg-white/80 backdrop-blur-md border border-white/50 rounded-lg text-theme-ink shadow-sm text-[12px] font-medium transition-all"
                 >
-                  点击显示封面
+                  显示完整封面
                 </button>
               </div>
             )}

@@ -211,7 +211,7 @@ export default function SubmitPage() {
                 </div>
 
                 {settings.enableR18Blur && (
-                  <div className="flex items-start space-x-3 bg-red-50 p-4 rounded-lg border border-red-100">
+                  <div className="flex items-start space-x-3 bg-red-50 p-4 rounded-lg border border-red-100/50">
                     <div className="flex items-center h-5">
                       <input
                         id="isR18"
@@ -223,10 +223,10 @@ export default function SubmitPage() {
                     </div>
                     <div className="flex flex-col">
                       <label htmlFor="isR18" className="text-[13px] font-medium text-red-800">
-                        R18 封面警告
+                        R18 标记
                       </label>
                       <p className="text-[12px] text-red-600 mt-1">
-                        如果封面包含露骨内容，请务必勾选此项，否则可能无法过审。
+                        如果封面包含成人/露骨内容，请勾选此项以应用适当的模糊效果。
                       </p>
                     </div>
                   </div>
