@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Info, Send, Loader2, CheckCircle } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { getValidImageUrl } from '../lib/utils';
 
 export default function SubmitPage() {
   const [jmId, setJmId] = useState('');
@@ -135,7 +136,7 @@ export default function SubmitPage() {
               
               <div className="flex gap-5 mb-6">
                 <img 
-                  src={formData.coverUrl || preview.coverUrl} 
+                  src={getValidImageUrl(formData.coverUrl || preview.coverUrl)} 
                   alt="Cover" 
                   className="w-[100px] h-[150px] object-cover rounded-md border border-[#eee]"
                   referrerPolicy="no-referrer"

@@ -4,6 +4,7 @@ import { db } from '../lib/firebase';
 import { Check, X, Loader2, BookOpen, Trash2, LayoutDashboard, Users, BookHeart, AlertCircle } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { useAuth } from '../contexts/AuthContext';
+import { getValidImageUrl } from '../lib/utils';
 
 export default function AdminPage() {
   const { isAdmin, isReviewer } = useAuth();
@@ -189,7 +190,7 @@ export default function AdminPage() {
             {pending.map((manga) => (
               <li key={manga.id} className="p-6 flex flex-col md:flex-row gap-6 hover:bg-theme-main transition-colors">
                 <img 
-                  src={manga.coverUrl} 
+                  src={getValidImageUrl(manga.coverUrl)} 
                   alt="" 
                   className="w-[100px] h-[150px] object-cover rounded-md border border-[#eee]"
                   referrerPolicy="no-referrer"
@@ -240,7 +241,7 @@ export default function AdminPage() {
             {catalog.map((manga) => (
               <li key={manga.id} className="p-6 flex flex-col md:flex-row gap-6 hover:bg-theme-main transition-colors">
                 <img 
-                  src={manga.coverUrl} 
+                  src={getValidImageUrl(manga.coverUrl)} 
                   alt="" 
                   className="w-[80px] h-[120px] object-cover rounded-md border border-[#eee]"
                   referrerPolicy="no-referrer"
