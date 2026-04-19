@@ -12,6 +12,7 @@ export default function HomePage() {
   const { settings } = useSettings();
   const [mangas, setMangas] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [minRating, setMinRating] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
@@ -38,12 +39,12 @@ export default function HomePage() {
     const matchesSearch = m.title.toLowerCase().includes(search.toLowerCase()) || 
                           m.tags?.some((t: string) => t.toLowerCase().includes(search.toLowerCase()));
     
-    // Treat unrated mangas as having effectively 0 comparing, unless they want unrated to be considered max. 
-    // Usually if a user asks for >= 4 stars, unrated manga shouldn't show up. 
+    const matchesCategory = selectedCategory === 'All' || m.category === selectedCategory;
+
     const rating = m.averageRating || 0;
     const matchesRating = minRating === 0 || rating >= minRating;
 
-    return matchesSearch && matchesRating;
+    return matchesSearch && matchesCategory && matchesRating;
   });
 
   return (
@@ -70,18 +71,18 @@ export default function HomePage() {
       {/* Filter Tags */}
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
         <div className="flex flex-wrap gap-2">
-          {['All', 'Childhood Friend', 'Vanilla', 'Wholesome', 'Newlyweds', 'Romance'].map(tag => (
+          {['All', '日漫', '韩漫', '其他'].map(cat => (
             <button
-              key={tag}
-              onClick={() => setSearch(tag === 'All' ? '' : tag)}
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
               className={cn(
-                "px-3 py-1 rounded text-[12px] font-medium transition-colors border",
-                (search.toLowerCase() === tag.toLowerCase() || (tag === 'All' && search === ''))
+                "px-4 py-1.5 rounded-lg text-[13px] font-medium transition-colors border",
+                selectedCategory === cat
                   ? "bg-theme-ink text-white border-theme-ink shadow-sm"
                   : "bg-white text-theme-muted border-[#eee] hover:border-theme-accent hover:text-theme-accent shadow-sm"
               )}
             >
-              {tag}
+              {cat}
             </button>
           ))}
         </div>

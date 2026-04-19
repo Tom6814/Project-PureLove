@@ -24,6 +24,7 @@ export default function SubmitPage() {
     coverUrl: '',
     authors: '',
     tags: '',
+    category: '',
   });
   
   const { user } = useAuth();
@@ -50,6 +51,7 @@ export default function SubmitPage() {
           coverUrl: data.coverUrl || '',
           authors: Array.isArray(data.authors) ? data.authors.join(', ') : (data.authors || ''),
           tags: Array.isArray(data.tags) ? data.tags.join(', ') : (data.tags || ''),
+          category: '',
         });
         setToastMessage('解析成功，请补充阅读感想后提交');
         setTimeout(() => setToastMessage(''), 3000);
@@ -69,6 +71,10 @@ export default function SubmitPage() {
 
   const handleSubmit = async () => {
     if (!preview || !user) return;
+    if (!formData.category) {
+      setError('请选择作品分类 (日漫/韩漫/其他)');
+      return;
+    }
     setSubmitting(true);
     try {
       const authorsArr = formData.authors.split(',').map(s => s.trim()).filter(Boolean);
@@ -82,6 +88,7 @@ export default function SubmitPage() {
         authors: authorsArr.length ? authorsArr : ['Unknown'],
         tags: tagsArr.length ? tagsArr : [],
         pages: preview.pages || 0,
+        category: formData.category,
         isR18: settings.enableR18Blur ? isR18 : false,
         status: 'pending',
         submittedBy: user.uid,
@@ -169,6 +176,28 @@ export default function SubmitPage() {
               </div>
 
               <div className="space-y-4">
+                <div>
+                  <label className="block text-[12px] font-medium text-theme-ink mb-1">
+                    作品分类 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-3">
+                    {['日漫', '韩漫', '其他'].map(cat => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setFormData({...formData, category: cat})}
+                        className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-colors border ${
+                          formData.category === cat 
+                            ? 'bg-theme-ink text-white border-theme-ink shadow-sm' 
+                            : 'bg-white text-theme-muted border-[#eee] hover:border-theme-accent hover:text-theme-accent'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-[12px] font-medium text-theme-ink mb-1">作者 (多个用逗号分隔)</label>
                   <input 

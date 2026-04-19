@@ -230,7 +230,11 @@ export default function MangaPage() {
             </a>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-4 text-[13px] border-t border-[#eee]">
+          <div className="grid grid-cols-3 gap-4 pt-4 text-[13px] border-t border-[#eee]">
+            <div>
+              <span className="block text-theme-muted mb-1">分类</span>
+              <span className="text-theme-ink font-medium">{manga.category || '未分类'}</span>
+            </div>
             <div>
               <span className="block text-theme-muted mb-1">作者</span>
               <span className="text-theme-ink font-medium">{manga.authors?.join(', ') || 'Unknown'}</span>
