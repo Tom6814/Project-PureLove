@@ -201,7 +201,7 @@ export default function AdminPage() {
                   <p className="text-[12px] text-theme-muted line-clamp-2">{manga.description}</p>
                   
                   <div className="text-[11px] text-[#aaa] mt-2">
-                    Submitted by: {manga.submittedBy}
+                    推荐者: {manga.submittedByName || manga.submittedBy || 'Unknown'}
                   </div>
                 </div>
                 

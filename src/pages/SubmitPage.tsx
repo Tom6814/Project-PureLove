@@ -81,6 +81,7 @@ export default function SubmitPage() {
         pages: preview.pages || 0,
         status: 'pending',
         submittedBy: user.uid,
+        submittedByName: user.displayName || '匿名用户',
         createdAt: new Date().toISOString()
       });
       setToastMessage('提交成功，请等待审核');

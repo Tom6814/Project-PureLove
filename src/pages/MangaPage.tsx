@@ -122,6 +122,14 @@ export default function MangaPage() {
             className="w-full aspect-[2/3] object-cover rounded-md shadow-sm border border-[#eee] bg-[#e5e5e5]"
             referrerPolicy="no-referrer"
           />
+          {manga.submittedByName && (
+            <div className="mt-3 text-center">
+              <span className="text-[11px] text-theme-muted uppercase tracking-wide">推荐者</span>
+              <p className="text-[12px] font-medium text-theme-ink mt-0.5 truncate px-2" title={manga.submittedByName}>
+                {manga.submittedByName}
+              </p>
+            </div>
+          )}
         </div>
         <div className="flex-1 relative z-10 space-y-4 md:pt-4">
           <h1 className="font-serif text-[32px] font-light text-theme-ink leading-tight tracking-tight">{manga.title}</h1>
