@@ -31,7 +31,11 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT_PURELOVE_34E8D: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PURELOVE_34E8D }}
         run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT_PURELOVE_34E8D" > "$RUNNER_TEMP/firebase-sa.json"
+          if printf '%s' "$FIREBASE_SERVICE_ACCOUNT_PURELOVE_34E8D" | head -c 1 | grep -q '{'; then
+            printf '%s' "$FIREBASE_SERVICE_ACCOUNT_PURELOVE_34E8D" > "$RUNNER_TEMP/firebase-sa.json"
+          else
+            printf '%s' "$FIREBASE_SERVICE_ACCOUNT_PURELOVE_34E8D" | base64 --decode > "$RUNNER_TEMP/firebase-sa.json"
+          fi
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-sa.json" >> "$GITHUB_ENV"
 
       - name: Deploy Firestore Rules
