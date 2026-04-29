@@ -1,0 +1,38 @@
+name: Deploy Firestore Rules
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - firestore.rules
+      - firebase.json
+      - .firebaserc
+      - .github/workflows/deploy-firestore-rules.yml
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Firebase CLI
+        run: npm i -g firebase-tools
+
+      - name: Write service account key
+        env:
+          FIREBASE_SERVICE_ACCOUNT_PURELOVE_34E8D: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PURELOVE_34E8D }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT_PURELOVE_34E8D" > "$RUNNER_TEMP/firebase-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-sa.json" >> "$GITHUB_ENV"
+
+      - name: Deploy Firestore Rules
+        run: firebase deploy --only firestore:rules --project purelove-34e8d
