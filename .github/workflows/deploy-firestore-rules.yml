@@ -37,6 +37,7 @@ jobs:
             printf '%s' "$FIREBASE_SERVICE_ACCOUNT_PURELOVE_34E8D" | base64 --decode > "$RUNNER_TEMP/firebase-sa.json"
           fi
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-sa.json" >> "$GITHUB_ENV"
+          node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/firebase-sa.json','utf8')).project_id; if(!p) process.exit(1); console.log('FIREBASE_PROJECT_ID='+p)" >> "$GITHUB_ENV"
 
       - name: Deploy Firestore Rules
-        run: firebase deploy --only firestore:rules --project purelove-34e8d
+        run: firebase deploy --only firestore:rules --project "$FIREBASE_PROJECT_ID"
