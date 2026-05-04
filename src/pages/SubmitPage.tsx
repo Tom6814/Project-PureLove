@@ -258,27 +258,25 @@ export default function SubmitPage() {
                   />
                 </div>
 
-                {settings.enableR18Blur && (
-                  <div className="flex items-start space-x-3 bg-red-50 p-4 rounded-lg border border-red-100/50">
-                    <div className="flex items-center h-5">
-                      <input
-                        id="isR18"
-                        type="checkbox"
-                        checked={isR18}
-                        onChange={(e) => setIsR18(e.target.checked)}
-                        className="w-4 h-4 text-theme-accent bg-white border-red-200 rounded focus:ring-theme-accent focus:ring-2"
-                      />
-                    </div>
-                    <div className="flex flex-col">
-                      <label htmlFor="isR18" className="text-[13px] font-medium text-red-800">
-                        R18 标记
-                      </label>
-                      <p className="text-[12px] text-red-600 mt-1">
-                        如果封面包含成人/露骨内容，请勾选此项以应用适当的模糊效果。
-                      </p>
-                    </div>
+                <div className="flex items-start space-x-3 bg-theme-bg p-4 rounded-lg border border-[#eee]">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="isR18"
+                      type="checkbox"
+                      checked={isR18}
+                      onChange={(e) => setIsR18(e.target.checked)}
+                      className="w-4 h-4 text-theme-accent bg-white border-[#ddd] rounded focus:ring-theme-accent focus:ring-2"
+                    />
                   </div>
-                )}
+                  <div className="flex flex-col">
+                    <label htmlFor="isR18" className="text-[13px] font-medium text-theme-ink">
+                      R18 封面模糊
+                    </label>
+                    <p className="text-[12px] text-theme-muted mt-1">
+                      如果封面包含成人/露骨内容，请勾选此项（上架后将对封面做轻度模糊处理）。
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="mt-5 pt-5 border-t border-[#eee] flex justify-end">

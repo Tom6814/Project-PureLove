@@ -59,9 +59,9 @@ export default function MangaPage() {
     if (!user || !id) return openAuthModal('login');
     setIsRating(true);
     setUserRating(val); // Optimistic UI update
+    const isUpdating = !!userReview;
 
     try {
-      const isUpdating = !!userReview;
       const reviewData = {
         mangaId: id,
         userId: user.uid,
@@ -110,9 +110,9 @@ export default function MangaPage() {
     e.preventDefault();
     if (!user || !id) return openAuthModal('login');
     setIsCommenting(true);
+    const isUpdating = !!userReview;
     
     try {
-      const isUpdating = !!userReview;
       const reviewData = {
         mangaId: id,
         userId: user.uid,
