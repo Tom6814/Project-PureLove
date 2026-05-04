@@ -89,6 +89,14 @@ export default function AdminPage() {
     }
   };
 
+  const handleSetR18 = async (mangaId: string, isR18: boolean) => {
+    try {
+      await updateDoc(doc(db, 'mangas', mangaId), { isR18 });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `mangas/${mangaId}`);
+    }
+  };
+
   const handleToggleReviewer = async (userId: string, currentRole: string) => {
     if (!isAdmin) return;
     try {
@@ -225,7 +233,18 @@ export default function AdminPage() {
                 </div>
                 <div className="flex-1 space-y-2">
                   <h3 className="font-semibold text-[15px] leading-tight text-theme-ink">{manga.title}</h3>
-                  <p className="text-[12px] text-theme-accent font-mono bg-theme-bg inline-block px-2 py-1 rounded border border-[#eee]">JM ID: {manga.jmId}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-[12px] text-theme-accent font-mono bg-theme-bg inline-block px-2 py-1 rounded border border-[#eee]">JM ID: {manga.jmId}</p>
+                    <label className="flex items-center gap-2 text-[12px] text-theme-muted bg-theme-bg px-2 py-1 rounded border border-[#eee] cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={!!manga.isR18}
+                        onChange={(e) => handleSetR18(manga.id, e.target.checked)}
+                        className="w-4 h-4 text-theme-accent bg-white border-[#ddd] rounded focus:ring-theme-accent focus:ring-2"
+                      />
+                      R18
+                    </label>
+                  </div>
                   <p className="text-[12px] text-theme-muted line-clamp-2">{manga.description}</p>
                   
                   <div className="text-[11px] text-[#aaa] mt-2">
@@ -284,7 +303,18 @@ export default function AdminPage() {
                 </div>
                 <div className="flex-1 space-y-2">
                   <h3 className="font-semibold text-[15px] leading-tight text-theme-ink">{manga.title}</h3>
-                  <p className="text-[12px] text-theme-accent font-mono bg-theme-bg inline-block px-2 py-1 rounded border border-[#eee]">JM ID: {manga.jmId}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-[12px] text-theme-accent font-mono bg-theme-bg inline-block px-2 py-1 rounded border border-[#eee]">JM ID: {manga.jmId}</p>
+                    <label className="flex items-center gap-2 text-[12px] text-theme-muted bg-theme-bg px-2 py-1 rounded border border-[#eee] cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={!!manga.isR18}
+                        onChange={(e) => handleSetR18(manga.id, e.target.checked)}
+                        className="w-4 h-4 text-theme-accent bg-white border-[#ddd] rounded focus:ring-theme-accent focus:ring-2"
+                      />
+                      R18
+                    </label>
+                  </div>
                   
                   <div className="text-[11px] text-[#aaa] mt-2">
                     Published. 

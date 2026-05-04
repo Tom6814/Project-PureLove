@@ -50,6 +50,8 @@ service cloud.firestore {
              (!('authors' in data) || data.authors is list) &&
              (!('tags' in data) || data.tags is list) &&
              (!('pages' in data) || data.pages is number) &&
+             (!('isR18' in data) || data.isR18 is bool) &&
+             (!('category' in data) || data.category is string) &&
              (!('averageRating' in data) || data.averageRating is number) &&
              (!('reviewCount' in data) || data.reviewCount is number);
     }

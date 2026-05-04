@@ -6,10 +6,8 @@ import { motion } from 'framer-motion';
 import { Heart, Search } from 'lucide-react';
 import { cn, getValidImageUrl } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
-import { useSettings } from '../hooks/useSettings';
 
 export default function HomePage() {
-  const { settings } = useSettings();
   const [mangas, setMangas] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -128,12 +126,14 @@ export default function HomePage() {
                       alt={manga.title}
                       className={cn(
                         "w-full h-full object-cover group-hover:opacity-90 transition-all duration-500",
-                        settings.enableR18Blur && manga.isR18 ? "blur-md scale-105" : ""
+                        manga.isR18 ? "blur-md scale-105" : ""
                       )}
                       referrerPolicy="no-referrer"
                     />
-                    {settings.enableR18Blur && manga.isR18 && (
-                      <span className="absolute top-2 right-2 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider shadow-sm pointer-events-none">R18</span>
+                    {manga.isR18 && (
+                      <span className="absolute top-2 right-2 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider shadow-sm pointer-events-none">
+                        R18
+                      </span>
                     )}
                   </div>
                   <div className="p-[15px]">

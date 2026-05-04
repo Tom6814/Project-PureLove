@@ -5,7 +5,7 @@ import crypto from 'crypto';
 
 async function startServer() {
   const app = express();
-  const PORT = parseInt(process.env.PORT || '3000', 10);
+  const PORT = Number.parseInt(process.env.PORT || '', 10) || 3000;
 
   app.use(express.json());
 

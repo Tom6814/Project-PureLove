@@ -7,14 +7,12 @@ import { Star, MessageSquareDashed, User, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { getValidImageUrl, cn } from '../lib/utils';
-import { useSettings } from '../hooks/useSettings';
 
 export default function MangaPage() {
   const { id } = useParams<{ id: string }>();
   const [manga, setManga] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const { user, profile, openAuthModal } = useAuth();
-  const { settings } = useSettings();
   const [revealR18, setRevealR18] = useState(false);
   
   // Interaction form states
@@ -170,19 +168,25 @@ export default function MangaPage() {
               alt={manga.title} 
               className={cn(
                 "w-full h-full object-cover transition-all duration-500",
-                settings.enableR18Blur && manga.isR18 && !revealR18 ? "blur-xl scale-105" : ""
+                manga.isR18 && !revealR18 ? "blur-xl scale-105" : ""
               )}
               referrerPolicy="no-referrer"
             />
-            {settings.enableR18Blur && manga.isR18 && !revealR18 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/10 p-4 text-center">
-                <button 
+            {manga.isR18 && !revealR18 && (
+              <div className="absolute inset-0 flex items-end justify-center p-3">
+                <button
+                  type="button"
                   onClick={() => setRevealR18(true)}
-                  className="px-4 py-2 bg-white/60 hover:bg-white/80 backdrop-blur-md border border-white/50 rounded-lg text-theme-ink shadow-sm text-[12px] font-medium transition-all"
+                  className="px-4 py-2 bg-white/70 hover:bg-white/90 backdrop-blur border border-white/60 rounded-lg text-theme-ink shadow-sm text-[12px] font-medium transition-colors"
                 >
-                  显示完整封面
+                  显示封面
                 </button>
               </div>
+            )}
+            {manga.isR18 && (
+              <span className="absolute top-2 right-2 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider shadow-sm pointer-events-none">
+                R18
+              </span>
             )}
           </div>
           {manga.submittedByName && (

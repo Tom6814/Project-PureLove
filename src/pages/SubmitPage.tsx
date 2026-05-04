@@ -7,7 +7,6 @@ import axios from 'axios';
 import { Info, Send, Loader2, CheckCircle } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { getValidImageUrl } from '../lib/utils';
-import { useSettings } from '../hooks/useSettings';
 
 export default function SubmitPage() {
   const [jmId, setJmId] = useState('');
@@ -16,6 +15,7 @@ export default function SubmitPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [isR18, setIsR18] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -29,8 +29,6 @@ export default function SubmitPage() {
   
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { settings } = useSettings();
-  const [isR18, setIsR18] = useState(false);
 
   const handleFetch = async () => {
     if (!jmId) return;
@@ -44,6 +42,7 @@ export default function SubmitPage() {
       if (response.data.success) {
         const data = response.data.data;
         setPreview(data);
+        setIsR18(false);
         setFormData({
           title: data.title || '',
           description: data.description || '',
@@ -89,7 +88,7 @@ export default function SubmitPage() {
         tags: tagsArr.length ? tagsArr : [],
         pages: preview.pages || 0,
         category: formData.category,
-        isR18: settings.enableR18Blur ? isR18 : false,
+        isR18,
         status: 'pending',
         submittedBy: user.uid,
         submittedByName: user.displayName || '匿名用户',
@@ -176,6 +175,26 @@ export default function SubmitPage() {
               </div>
 
               <div className="space-y-4">
+                <div className="flex items-start space-x-3 bg-theme-bg p-4 rounded-lg border border-[#eee]">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="isR18"
+                      type="checkbox"
+                      checked={isR18}
+                      onChange={(e) => setIsR18(e.target.checked)}
+                      className="w-4 h-4 text-theme-accent bg-white border-[#ddd] rounded focus:ring-theme-accent focus:ring-2"
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <label htmlFor="isR18" className="text-[13px] font-medium text-theme-ink">
+                      R18 封面模糊
+                    </label>
+                    <p className="text-[12px] text-theme-muted mt-1">
+                      如果封面包含成人/露骨内容，请勾选此项（上架后将对封面做轻度模糊处理）。
+                    </p>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-[12px] font-medium text-theme-ink mb-1">
                     作品分类 <span className="text-red-500">*</span>
