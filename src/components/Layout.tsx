@@ -63,7 +63,7 @@ const Header = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-10 h-20 flex items-center justify-between">
         <Link to="/" className="flex items-center space-x-2 group">
           <span className="font-serif italic font-bold text-2xl tracking-tighter text-theme-accent group-hover:opacity-80 transition-opacity">
-            JM PureLove
+            Project RN
           </span>
         </Link>
 
