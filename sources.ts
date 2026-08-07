@@ -131,10 +131,12 @@ async function jmDomains(): Promise<string[]> {
   return JM_FALLBACK_DOMAINS;
 }
 
-async function jmRequest(pathWithQuery: string, opts: { method?: string; body?: string; cookie?: string } = {}): Promise<any | null> {
-  const { method = 'GET', body, cookie } = opts;
-  const domains = await jmDomains();
-  for (const domain of domains) {
+type JmResp = { data: any; setCookie?: string; domain?: string };
+
+async function jmRequest(pathWithQuery: string, opts: { method?: string; body?: string; cookie?: string; domain?: string } = {}): Promise<JmResp | null> {
+  const { method = 'GET', body, cookie, domain } = opts;
+  const domains = domain ? [domain] : await jmDomains();
+  for (const d of domains) {
     try {
       const ts = Math.floor(Date.now() / 1000).toString();
       const token = md5(ts + JM_TOKEN_SECRET);
@@ -146,7 +148,7 @@ async function jmRequest(pathWithQuery: string, opts: { method?: string; body?: 
       };
       if (body) headers['Content-Type'] = 'application/x-www-form-urlencoded';
       if (cookie) headers['Cookie'] = cookie;
-      const resp = await fetch(`https://${domain}${pathWithQuery}`, {
+      const resp = await fetch(`https://${d}${pathWithQuery}`, {
         method,
         signal: AbortSignal.timeout(8000),
         headers,
@@ -154,7 +156,8 @@ async function jmRequest(pathWithQuery: string, opts: { method?: string; body?: 
       });
       const result = await resp.json();
       if (result?.code === 200 && typeof result.data === 'string') {
-        return JSON.parse(jmDecrypt(result.data, ts, JM_TOKEN_SECRET));
+        const setCookie = resp.headers.get('set-cookie') || undefined;
+        return { data: JSON.parse(jmDecrypt(result.data, ts, JM_TOKEN_SECRET)), setCookie, domain: d };
       }
     } catch {
       /* try next domain */
@@ -180,7 +183,7 @@ const jmAdapter: SourceAdapter = {
 
   async search(q, page) {
     const data = await jmRequest(`/search?search_query=${encodeURIComponent(q)}&page=${page}&o=`);
-    const list = Array.isArray(data?.content) ? data.content : [];
+    const list = Array.isArray(data?.data?.content) ? data.data.content : [];
     return Promise.all(
       list.map(async (it: any) => ({
         id: String(it.id),
@@ -193,51 +196,82 @@ const jmAdapter: SourceAdapter = {
 
   async detail(id) {
     const data = await jmRequest(`/album?id=${encodeURIComponent(id)}`);
-    if (!data || !data.name) return null;
+    const d = data?.data;
+    if (!d || !d.name) return null;
     const coverUrl = await toBase64Cover(`${JM_COVER_HOSTS[0]}/media/albums/${id}.jpg`);
     return {
-      id: String(data.id ?? id),
-      title: data.name || '',
-      description: data.description || '',
+      id: String(d.id ?? id),
+      title: d.name || '',
+      description: d.description || '',
       coverUrl,
-      authors: toArr(data.author),
-      tags: toArr(data.tags),
-      pages: parseInt(data.total_photos || '0', 10) || 0,
+      authors: toArr(d.author),
+      tags: toArr(d.tags),
+      pages: parseInt(d.total_photos || '0', 10) || 0,
     };
   },
 
-  // 登录后获取收藏夹。cred.avs 为登录接口返回的 s 值，作为 cookie AVS 使用。
+  // 登录后获取收藏夹。jmcomic 中登录响应 cookies + AVS 一起作为后续请求的 Cookie，
+  // 且 AVS 会话与登录域名绑定，收藏请求必须使用同一域名。
+  // 某些域名（如 cdnhjk.net）不稳定，因此这里按域名逐个"登录+拉取"，直到成功。
   async login(username, password) {
     const data = await jmRequest('/login', {
       method: 'POST',
       body: new URLSearchParams({ username, password }).toString(),
     });
-    if (data && data.s) return { ok: true, credentials: { avs: String(data.s) } };
+    if (data && data.data && data.data.s) {
+      // 携带 username/password：收藏跨域名重登录时需要
+      return { ok: true, credentials: { username, password, avs: String(data.data.s), setCookie: data.setCookie || '', domain: data.domain || '' } };
+    }
     return { ok: false, error: '登录失败，请检查账号密码' };
   },
 
   async favorites(cred) {
     if (!cred?.avs) return [];
-    // 逐页拉取收藏，最多取前 5 页
-    const items: SourceSearchItem[] = [];
-    for (let page = 1; page <= 5; page++) {
-      const data = await jmRequest(
-        `/favorite?page=${page}&folder_id=0&o=la`,
-        { cookie: `AVS=${cred.avs}` }
-      );
-      const list = Array.isArray(data?.list) ? data.list : [];
-      for (const it of list) {
-        items.push({
-          id: String(it.id),
-          title: it.name || '',
-          coverUrl: await toBase64Cover(jmCoverUrl(it)),
-          authors: toArr(it.author),
+    // 优先使用登录时的域名；若该域名不稳定导致失败，则尝试其他域名（每个域名重新登录获取有效 AVS）
+    const domains = await jmDomains();
+    const ordered = cred.domain ? [cred.domain, ...domains.filter((d) => d !== cred.domain)] : domains;
+
+    const tryDomain = async (domain: string): Promise<SourceSearchItem[]> => {
+      // 该域名未登录时，先在该域名登录（AVS 会话绑定域名）
+      let avs = String(cred.avs);
+      let baseCookie = cred.setCookie ? cred.setCookie.split(';')[0] : '';
+      if (domain !== cred.domain) {
+        const loginResp = await jmRequest('/login', {
+          method: 'POST',
+          body: new URLSearchParams({ username: cred.username || '', password: cred.password || '' }).toString(),
+          domain,
         });
+        if (loginResp?.data?.s) {
+          avs = String(loginResp.data.s);
+          baseCookie = loginResp.setCookie ? loginResp.setCookie.split(';')[0] : '';
+        } else {
+          return [];
+        }
       }
-      const total = parseInt(data?.total || '0', 10) || 0;
-      if (items.length >= total || items.length === 0 || list.length === 0) break;
+      const cookie = [baseCookie, `AVS=${avs}`].filter(Boolean).join('; ');
+      const items: SourceSearchItem[] = [];
+      for (let page = 1; page <= 5; page++) {
+        const data = await jmRequest(`/favorite?page=${page}&folder_id=0&o=la`, { cookie, domain });
+        const list = Array.isArray(data?.data?.list) ? data.data.list : [];
+        for (const it of list) {
+          items.push({
+            id: String(it.id),
+            title: it.name || '',
+            coverUrl: await toBase64Cover(jmCoverUrl(it)),
+            authors: toArr(it.author),
+          });
+        }
+        const total = parseInt(data?.data?.total || '0', 10) || 0;
+        if (items.length >= total || items.length === 0 || list.length === 0) break;
+      }
+      return items;
+    };
+
+    for (const domain of ordered) {
+      const items = await tryDomain(domain);
+      if (items.length > 0) return items;
     }
-    return items;
+    return [];
   },
 };
 
@@ -344,8 +378,8 @@ const bikaAdapter: SourceAdapter = {
   // 我的收藏（需要登录 token）
   async favorites(cred) {
     if (!cred?.token) return [];
-    const data = await bikaFetch('favorites?page=1', { token: cred.token });
-    const docs = data.favorites?.docs || [];
+    const data = await bikaFetch('users/favourite?page=1&s=dd', { token: cred.token });
+    const docs = data.comics?.docs || [];
     return Promise.all(
       docs.map(async (c: any) => ({
         id: c._id,
