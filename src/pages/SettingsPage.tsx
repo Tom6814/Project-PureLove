@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth, SocialLink } from '../contexts/AuthContext';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { supabase } from '../lib/supabase';
+import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 import { Save, Loader2, Plus, Trash2 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -38,20 +37,23 @@ export default function SettingsPage() {
     setSaving(true);
     setMessage('');
     try {
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        displayName,
-        jmUsername,
-        contactEmail,
-        bio,
-        socialLinks,
-        backgroundUrl,
-        customCss
-      });
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          display_name: displayName,
+          jm_username: jmUsername,
+          contact_email: contactEmail,
+          bio,
+          social_links: socialLinks,
+          background_url: backgroundUrl,
+          custom_css: customCss,
+        })
+        .eq('id', user.uid);
+      if (error) throw error;
       setMessage('个人资料保存成功！');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, 'users');
+      handleSupabaseError(err, OperationType.UPDATE, 'users');
     } finally {
       setSaving(false);
     }

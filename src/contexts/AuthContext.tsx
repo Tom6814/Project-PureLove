@@ -1,33 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
+import {
+  supabase,
+  toAppUser,
+  mapProfileRow,
+  type AppUser,
+  type UserProfile,
+} from '../lib/supabase';
+import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 
-export interface SocialLink {
-  id: string;
-  icon: string; // Emoji, like 🐦, 🌐, 📺
-  label: string; // e.g. Twitter, Website, YouTube
-  url: string;
-}
-
-export interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string;
-  photoURL: string;
-  role: 'user' | 'admin' | 'reviewer';
-  jmUsername?: string;
-  contactEmail?: string;
-  bio?: string;
-  socialLinks?: SocialLink[];
-  backgroundUrl?: string;
-  customCss?: string;
-  createdAt: string;
-}
+export type { SocialLink, UserProfile } from '../lib/supabase';
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   profile: UserProfile | null;
   loading: boolean;
   isAdmin: boolean;
@@ -51,10 +36,10 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
@@ -62,59 +47,91 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthMode(mode);
     setIsAuthModalOpen(true);
   };
-  
+
   const closeAuthModal = () => {
     setIsAuthModalOpen(false);
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      if (firebaseUser) {
-        try {
-          const userRef = doc(db, 'users', firebaseUser.uid);
-          const userSnap = await getDoc(userRef);
-          
-          if (userSnap.exists()) {
-            setProfile(userSnap.data() as UserProfile);
-          } else {
-            // Check if root admin based on verified email from prompt
-            const isAdmin = firebaseUser.email === 'sliverwhale000@gmail.com' && firebaseUser.emailVerified;
-            const newProfile: UserProfile = {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || '',
-              photoURL: firebaseUser.photoURL || '',
-              role: isAdmin ? 'admin' : 'user',
-              createdAt: new Date().toISOString()
-            };
-            await setDoc(userRef, newProfile);
-            setProfile(newProfile);
-          }
-        } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
-        }
-      } else {
+    let active = true;
+
+    const syncProfile = async (sbUser: SupabaseUser) => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', sbUser.id)
+        .maybeSingle();
+
+      if (error) {
+        handleSupabaseError(error, OperationType.GET, `profiles/${sbUser.id}`);
+        return;
+      }
+      if (data) {
+        if (active) setProfile(mapProfileRow(data));
+        return;
+      }
+
+      // Safety net: the auth trigger normally creates the profile row.
+      const meta = sbUser.user_metadata ?? {};
+      const { data: inserted, error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: sbUser.id,
+          email: sbUser.email,
+          display_name:
+            (meta.full_name as string) ||
+            (meta.name as string) ||
+            (meta.user_name as string) ||
+            sbUser.email?.split('@')[0] ||
+            '',
+          photo_url:
+            (meta.avatar_url as string) || (meta.picture as string) || (meta.avatar as string) || '',
+          role: 'user',
+        })
+        .select()
+        .maybeSingle();
+
+      if (insertError) {
+        handleSupabaseError(insertError, OperationType.CREATE, `profiles/${sbUser.id}`);
+        return;
+      }
+      if (inserted && active) setProfile(mapProfileRow(inserted));
+    };
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const sbUser = session?.user ?? null;
+      if (active) {
+        setUser(sbUser ? toAppUser(sbUser) : null);
         setProfile(null);
       }
-      setLoading(false);
+      if (sbUser) {
+        await syncProfile(sbUser);
+      }
+      if (active) setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      profile, 
-      loading, 
-      isAdmin: profile?.role === 'admin',
-      isReviewer: profile?.role === 'reviewer',
-      isAuthModalOpen,
-      authMode,
-      openAuthModal,
-      closeAuthModal
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        loading,
+        isAdmin: profile?.role === 'admin',
+        isReviewer: profile?.role === 'reviewer',
+        isAuthModalOpen,
+        authMode,
+        openAuthModal,
+        closeAuthModal,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

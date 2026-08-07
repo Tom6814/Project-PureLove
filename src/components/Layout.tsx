@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { logout } from '../lib/firebase';
+import { logout } from '../lib/supabase';
 import { LogOut, ShieldCheck } from 'lucide-react';
 import { AuthModal } from './AuthModal';
 import { AnimatePresence } from 'framer-motion';

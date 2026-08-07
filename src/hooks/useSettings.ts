@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase, subscribeToTable } from '../lib/supabase';
+import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 
 export interface SiteSettings {
   enableR18Blur: boolean;
@@ -15,20 +15,42 @@ export function useSettings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'settings', 'general'), (docSnap) => {
-      if (docSnap.exists()) {
-        setSettings({ ...defaultSettings, ...docSnap.data() });
-      } else {
-        setSettings(defaultSettings);
-      }
-      setLoading(false);
-    });
+    let active = true;
 
-    return () => unsubscribe();
+    const fetchSettings = async () => {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('id', 'general')
+        .maybeSingle();
+
+      if (error) {
+        handleSupabaseError(error, OperationType.GET, 'settings/general');
+        return;
+      }
+      if (active) {
+        setSettings({ ...defaultSettings, ...(data ? { enableR18Blur: data.enable_r18_blur } : {}) });
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+    const unsubscribe = subscribeToTable('settings', fetchSettings);
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const updateSettings = async (newSettings: Partial<SiteSettings>) => {
-    await setDoc(doc(db, 'settings', 'general'), newSettings, { merge: true });
+    const { error } = await supabase
+      .from('settings')
+      .update({ enable_r18_blur: newSettings.enableR18Blur })
+      .eq('id', 'general');
+    if (error) {
+      handleSupabaseError(error, OperationType.UPDATE, 'settings/general');
+    }
   };
 
   return { settings, loading, updateSettings };

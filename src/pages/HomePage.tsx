@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase, mapMangaRow, subscribeToTable } from '../lib/supabase';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Heart, Search } from 'lucide-react';
 import { cn, getValidImageUrl } from '../lib/utils';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 
 export default function HomePage() {
   const [mangas, setMangas] = useState<any[]>([]);
@@ -15,22 +14,32 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(
-      collection(db, 'mangas'),
-      where('status', '==', 'approved'),
-      orderBy('createdAt', 'desc')
-    );
+    let active = true;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setMangas(data);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'mangas');
-      setLoading(false);
-    });
+    const fetchMangas = async () => {
+      const { data, error } = await supabase
+        .from('mangas')
+        .select('*')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false });
 
-    return () => unsubscribe();
+      if (error) {
+        handleSupabaseError(error, OperationType.LIST, 'mangas');
+        return;
+      }
+      if (active) {
+        setMangas((data ?? []).map(mapMangaRow));
+        setLoading(false);
+      }
+    };
+
+    fetchMangas();
+    const unsubscribe = subscribeToTable('mangas', fetchMangas);
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const filtered = mangas.filter(m => {

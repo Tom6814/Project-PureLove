@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, updateDoc, doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase, mapMangaRow, mapProfileRow, subscribeToTable } from '../lib/supabase';
 import { Check, X, Loader2, BookOpen, Trash2, LayoutDashboard, Users, BookHeart, AlertCircle } from 'lucide-react';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 import { useAuth } from '../contexts/AuthContext';
 import { getValidImageUrl, cn } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
@@ -24,38 +23,59 @@ export default function AdminPage() {
   });
 
   useEffect(() => {
-    const q = query(
-      collection(db, 'mangas'),
-      where('status', '==', 'pending')
-    );
+    let active = true;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setPending(data);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'mangas');
-      setLoading(false);
-    });
+    const fetchPending = async () => {
+      const { data, error } = await supabase
+        .from('mangas')
+        .select('*')
+        .eq('status', 'pending');
+      if (error) {
+        handleSupabaseError(error, OperationType.LIST, 'mangas');
+        return;
+      }
+      if (active) {
+        setPending((data ?? []).map(mapMangaRow));
+        setLoading(false);
+      }
+    };
 
-    return () => unsubscribe();
+    fetchPending();
+    const unsubscribe = subscribeToTable('mangas', fetchPending);
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
     if (activeTab === 'reviewers' || activeTab === 'overview') {
       if (isAdmin) {
         if(activeTab === 'reviewers') setLoading(true);
-        const uq = query(collection(db, 'users'));
-        const unsubscribeUsers = onSnapshot(uq, (snapshot) => {
-          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          setUsers(data);
-          setStats(s => ({...s, totalUsers: snapshot.size}));
-          if(activeTab === 'reviewers') setLoading(false);
-        }, (error) => {
-          handleFirestoreError(error, OperationType.LIST, 'users');
-          if(activeTab === 'reviewers') setLoading(false);
-        });
-        return () => unsubscribeUsers();
+        let active = true;
+        const fetchUsers = async () => {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (error) {
+            handleSupabaseError(error, OperationType.LIST, 'users');
+            if(activeTab === 'reviewers') setLoading(false);
+            return;
+          }
+          if (active) {
+            setUsers((data ?? []).map(mapProfileRow));
+            setStats(s => ({...s, totalUsers: data?.length ?? 0}));
+            if(activeTab === 'reviewers') setLoading(false);
+          }
+        };
+        fetchUsers();
+        const unsubscribe = subscribeToTable('profiles', fetchUsers);
+        return () => {
+          active = false;
+          unsubscribe();
+        };
       }
     }
   }, [activeTab, isAdmin]);
@@ -63,17 +83,29 @@ export default function AdminPage() {
   useEffect(() => {
     if (activeTab === 'catalog' || activeTab === 'overview') {
       if(activeTab === 'catalog') setLoading(true);
-      const q = query(collection(db, 'mangas'), where('status', '==', 'approved'));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setCatalog(data);
-        setStats(s => ({...s, totalApproved: snapshot.size}));
-        if(activeTab === 'catalog') setLoading(false);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'mangas');
-        if(activeTab === 'catalog') setLoading(false);
-      });
-      return () => unsubscribe();
+      let active = true;
+      const fetchCatalog = async () => {
+        const { data, error } = await supabase
+          .from('mangas')
+          .select('*')
+          .eq('status', 'approved');
+        if (error) {
+          handleSupabaseError(error, OperationType.LIST, 'mangas');
+          if(activeTab === 'catalog') setLoading(false);
+          return;
+        }
+        if (active) {
+          setCatalog((data ?? []).map(mapMangaRow));
+          setStats(s => ({...s, totalApproved: data?.length ?? 0}));
+          if(activeTab === 'catalog') setLoading(false);
+        }
+      };
+      fetchCatalog();
+      const unsubscribe = subscribeToTable('mangas', fetchCatalog);
+      return () => {
+        active = false;
+        unsubscribe();
+      };
     }
   }, [activeTab]);
 
@@ -83,17 +115,25 @@ export default function AdminPage() {
 
   const handleUpdateStatus = async (mangaId: string, status: 'approved' | 'rejected' | 'pending') => {
     try {
-      await updateDoc(doc(db, 'mangas', mangaId), { status });
+      const { error } = await supabase
+        .from('mangas')
+        .update({ status })
+        .eq('id', mangaId);
+      if (error) throw error;
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `mangas/${mangaId}`);
+      handleSupabaseError(error, OperationType.UPDATE, `mangas/${mangaId}`);
     }
   };
 
   const handleSetR18 = async (mangaId: string, isR18: boolean) => {
     try {
-      await updateDoc(doc(db, 'mangas', mangaId), { isR18 });
+      const { error } = await supabase
+        .from('mangas')
+        .update({ is_r18: isR18 })
+        .eq('id', mangaId);
+      if (error) throw error;
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `mangas/${mangaId}`);
+      handleSupabaseError(error, OperationType.UPDATE, `mangas/${mangaId}`);
     }
   };
 
@@ -101,9 +141,13 @@ export default function AdminPage() {
     if (!isAdmin) return;
     try {
       const newRole = currentRole === 'reviewer' ? 'user' : 'reviewer';
-      await updateDoc(doc(db, 'users', userId), { role: newRole });
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
+      if (error) throw error;
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+      handleSupabaseError(error, OperationType.UPDATE, `users/${userId}`);
     }
   };
 

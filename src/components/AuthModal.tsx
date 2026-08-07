@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Lock, Loader2, ShieldCheck, Github } from 'lucide-react';
-import { loginWithEmail, registerWithEmail, loginWithGoogle, loginWithGithub } from '../lib/firebase';
+import { loginWithEmail, registerWithEmail, loginWithGoogle, loginWithGithub } from '../lib/supabase';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -132,12 +132,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
       }
       onClose();
     } catch (err: any) {
-      // Very basic error parsing
-      let msg = 'Authentication failed';
-      if (err.code === 'auth/email-already-in-use') msg = '邮箱已被注册';
-      else if (err.code === 'auth/weak-password') msg = '密码太弱 (至少6位)';
-      else if (err.code === 'auth/invalid-email') msg = '无效的邮箱格式';
-      else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') msg = '邮箱或密码不正确';
+      // Map Supabase Auth error codes to friendly messages
+      let msg = '认证失败，请稍后重试';
+      if (err.code === 'email_exists' || err.code === 'user_already_exists') msg = '邮箱已被注册';
+      else if (err.code === 'weak_password') msg = '密码太弱 (至少6位)';
+      else if (err.code === 'invalid_email') msg = '无效的邮箱格式';
+      else if (err.code === 'invalid_credentials') msg = '邮箱或密码不正确';
+      else if (err.code === 'email_not_confirmed') msg = '邮箱尚未验证，请查收验证邮件';
+      else if (err.message) msg = err.message;
       setError(msg);
     } finally {
       setLoading(false);
@@ -162,8 +164,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
       await loginWithGithub();
       onClose();
     } catch (error: any) {
-      if (error.code === 'auth/operation-not-allowed') {
-        setError('GitHub 登录尚未开启，请在 Firebase 控制台中启用。');
+      if (error.code === 'provider_not_enabled' || error.code === 'unsupported_provider') {
+        setError('GitHub 登录尚未开启，请在 Supabase 控制台 Authentication 中启用。');
       } else {
         setError('GitHub 登录失败，请重试。');
       }

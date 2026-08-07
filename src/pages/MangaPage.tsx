@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase, mapMangaRow, mapReviewRow, subscribeToTable, isUniqueViolation } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Star, MessageSquareDashed, User, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 import { getValidImageUrl, cn } from '../lib/utils';
 
 export default function MangaPage() {
@@ -35,23 +34,43 @@ export default function MangaPage() {
 
   useEffect(() => {
     if (!id) return;
-    
-    const unsubscribeManga = onSnapshot(doc(db, 'mangas', id), (docSnap) => {
-      if (docSnap.exists()) {
-        setManga({ id: docSnap.id, ...docSnap.data() });
-      }
-    }, (err) => {
-      handleFirestoreError(err, OperationType.GET, `mangas/${id}`);
-    });
+    let active = true;
 
-    const q = query(collection(db, 'reviews'), where('mangaId', '==', id), orderBy('createdAt', 'desc'));
-    const unsubscribeReviews = onSnapshot(q, (snapshot) => {
-      setReviews(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'reviews'));
+    const fetchManga = async () => {
+      const { data, error } = await supabase
+        .from('mangas')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      if (error) {
+        handleSupabaseError(error, OperationType.GET, `mangas/${id}`);
+        return;
+      }
+      if (active && data) setManga(mapMangaRow(data));
+    };
+
+    const fetchReviews = async () => {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('manga_id', id)
+        .order('created_at', { ascending: false });
+      if (error) {
+        handleSupabaseError(error, OperationType.LIST, 'reviews');
+        return;
+      }
+      if (active) setReviews((data ?? []).map(mapReviewRow));
+    };
+
+    fetchManga();
+    fetchReviews();
+    const unsubManga = subscribeToTable('mangas', fetchManga);
+    const unsubReviews = subscribeToTable('reviews', fetchReviews);
 
     return () => {
-      unsubscribeManga();
-      unsubscribeReviews();
+      active = false;
+      unsubManga();
+      unsubReviews();
     };
   }, [id]);
 
@@ -63,44 +82,50 @@ export default function MangaPage() {
 
     try {
       const reviewData = {
-        mangaId: id,
-        userId: user.uid,
+        manga_id: id,
+        user_id: user.uid,
         rating: val,
-        customUsername: profile?.displayName || user.displayName || '匿名用户',
-        contactEmail: profile?.contactEmail || profile?.email || user.email || '',
-        jmUsername: profile?.jmUsername || '',
+        custom_username: profile?.displayName || user.displayName || '匿名用户',
+        contact_email: profile?.contactEmail || profile?.email || user.email || '',
+        jm_username: profile?.jmUsername || '',
       };
 
-      let newReviewId = userReview?.id;
-
       if (isUpdating) {
-        await updateDoc(doc(db, 'reviews', userReview.id), {
-          ...reviewData,
-          updatedAt: new Date().toISOString(),
-        });
+        const { error } = await supabase
+          .from('reviews')
+          .update({ ...reviewData, updated_at: new Date().toISOString() })
+          .eq('id', userReview.id);
+        if (error) throw error;
       } else {
-        const docRef = await addDoc(collection(db, 'reviews'), {
-          ...reviewData,
-          comment: userComment || '',
-          createdAt: new Date().toISOString(),
-        });
-        newReviewId = docRef.id;
-        setUserReview({ id: newReviewId, ...reviewData, comment: userComment || '' });
+        const { data, error } = await supabase
+          .from('reviews')
+          .insert({
+            ...reviewData,
+            comment: userComment || '',
+            created_at: new Date().toISOString(),
+          })
+          .select()
+          .maybeSingle();
+        if (error) {
+          // Duplicate (manga_id, user_id) → treat as update (e.g. race before reviews loaded)
+          if (isUniqueViolation(error)) {
+            const { error: upErr } = await supabase
+              .from('reviews')
+              .update({ ...reviewData, updated_at: new Date().toISOString() })
+              .eq('manga_id', id)
+              .eq('user_id', user.uid);
+            if (upErr) throw upErr;
+          } else {
+            throw error;
+          }
+        } else if (data) {
+          setUserReview(mapReviewRow(data));
+        }
       }
 
-      // Recalculate average
-      const otherReviews = reviews.filter(r => r.userId !== user.uid && r.rating > 0);
-      const allRatings = [...otherReviews, { rating: val }];
-      const totalRating = allRatings.reduce((sum, r) => sum + r.rating, 0);
-      const newAvgRating = allRatings.length > 0 ? totalRating / allRatings.length : 0;
-      
-      await updateDoc(doc(db, 'mangas', id), {
-        averageRating: newAvgRating,
-        reviewCount: allRatings.length
-      });
-
+      // average_rating / review_count are recomputed by the DB trigger.
     } catch (err) {
-      handleFirestoreError(err, isUpdating ? OperationType.UPDATE : OperationType.CREATE, 'reviews');
+      handleSupabaseError(err, isUpdating ? OperationType.UPDATE : OperationType.CREATE, 'reviews');
     } finally {
       setIsRating(false);
     }
@@ -114,29 +139,47 @@ export default function MangaPage() {
     
     try {
       const reviewData = {
-        mangaId: id,
-        userId: user.uid,
+        manga_id: id,
+        user_id: user.uid,
         comment: userComment,
-        customUsername: profile?.displayName || user.displayName || '匿名用户',
-        contactEmail: profile?.contactEmail || profile?.email || user.email || '',
-        jmUsername: profile?.jmUsername || '',
+        custom_username: profile?.displayName || user.displayName || '匿名用户',
+        contact_email: profile?.contactEmail || profile?.email || user.email || '',
+        jm_username: profile?.jmUsername || '',
       };
 
       if (isUpdating) {
-        await updateDoc(doc(db, 'reviews', userReview.id), {
-          ...reviewData,
-          updatedAt: new Date().toISOString(),
-        });
+        const { error } = await supabase
+          .from('reviews')
+          .update({ ...reviewData, updated_at: new Date().toISOString() })
+          .eq('id', userReview.id);
+        if (error) throw error;
       } else {
-        const docRef = await addDoc(collection(db, 'reviews'), {
-          ...reviewData,
-          rating: userRating || 0,
-          createdAt: new Date().toISOString(),
-        });
-        setUserReview({ id: docRef.id, ...reviewData, rating: userRating || 0 });
+        const { data, error } = await supabase
+          .from('reviews')
+          .insert({
+            ...reviewData,
+            rating: userRating || 0,
+            created_at: new Date().toISOString(),
+          })
+          .select()
+          .maybeSingle();
+        if (error) {
+          if (isUniqueViolation(error)) {
+            const { error: upErr } = await supabase
+              .from('reviews')
+              .update({ ...reviewData, updated_at: new Date().toISOString() })
+              .eq('manga_id', id)
+              .eq('user_id', user.uid);
+            if (upErr) throw upErr;
+          } else {
+            throw error;
+          }
+        } else if (data) {
+          setUserReview(mapReviewRow(data));
+        }
       }
     } catch (err) {
-      handleFirestoreError(err, isUpdating ? OperationType.UPDATE : OperationType.CREATE, 'reviews');
+      handleSupabaseError(err, isUpdating ? OperationType.UPDATE : OperationType.CREATE, 'reviews');
     } finally {
       setIsCommenting(false);
     }

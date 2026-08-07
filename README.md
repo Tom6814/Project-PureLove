@@ -43,10 +43,12 @@
 
 * **核心框架**: `React 19` + `Vite`
 * **圣衣编织**: `Tailwind CSS 4` + `Framer Motion` (极致流畅的交互与转场动画)
-* **信仰之门 (Auth)**: `Firebase Authentication`
-* **记忆石板 (Database)**: `Firebase Firestore` (实时同步评分、评论与审核状态)
+* **信仰之门 (Auth)**: `Supabase Auth` (邮箱密码 / Google / GitHub OAuth)
+* **记忆石板 (Database)**: `Supabase Postgres + Realtime` (RLS 行级安全策略 + 实时同步评分、评论与审核状态)
 * **数据引流 (Backend)**: `Express` + `Node.js` (搭载强力的 AES-256-ECB 解密核心与并发 CDN 探针)
 * **云端王座**: 完美适配 `Zeabur` 的 Docker 全栈容器化部署
+
+> 环境变量：复制 `.env.example` 为 `.env` 并填入你的 Supabase 项目地址与 Publishable Key（`VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`）。
 
 ---
 

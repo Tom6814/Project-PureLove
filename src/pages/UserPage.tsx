@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase, mapProfileRow, mapMangaRow } from '../lib/supabase';
 import { UserProfile } from '../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 import { getValidImageUrl, cn } from '../lib/utils';
@@ -20,22 +19,24 @@ export default function UserPage() {
     
     const fetchUserAndMangas = async () => {
       try {
-        const userSnap = await getDoc(doc(db, 'users', id));
-        if (userSnap.exists()) {
-          setProfile({ id: userSnap.id, ...userSnap.data() } as any);
-        } else {
-          setProfile(null);
-        }
+        const { data: userSnap, error: userError } = await supabase
+          .from('public_profiles')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+        if (userError) throw userError;
+
+        setProfile(userSnap ? mapProfileRow(userSnap) : null);
 
         // Fetch mangas recommended by this user
-        const q = query(
-          collection(db, 'mangas'),
-          where('submittedBy', '==', id),
-          where('status', '==', 'approved')
-        );
-        const mangaSnap = await getDocs(q);
-        setMangas(mangaSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        
+        const { data: mangaSnap, error: mangaError } = await supabase
+          .from('mangas')
+          .select('*')
+          .eq('submitted_by', id)
+          .eq('status', 'approved');
+        if (mangaError) throw mangaError;
+        setMangas((mangaSnap ?? []).map(mapMangaRow));
+
       } catch (err) {
         console.error("Failed to load user profile", err);
       } finally {

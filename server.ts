@@ -9,154 +9,178 @@ async function startServer() {
 
   app.use(express.json());
 
-  // API Route to simulate JM API scraper
+  // ============================================================
+  // JM API（对齐 JMComic-Crawler-Python 的移动端接口实现）
+  // ============================================================
+  const APP_VERSION = '2.0.30';
+  const APP_TOKEN_SECRET = '185Hcomic3PAPP7R'; // token 与数据解密共用密钥
+  const API_DOMAIN_SERVER_SECRET = 'diosfjckwpqpdfjkvnqQjsik';
+  const FALLBACK_API_DOMAINS = [
+    'www.cdnhjk.net',
+    'www.cdngwc.cc',
+    'www.cdngwc.net',
+    'www.cdngwc.club',
+    'www.cdnutc.me',
+  ];
+  // 最新移动端 API 域名发布源（与 jmcomic 相同）
+  const DOMAIN_SERVER_URLS = [
+    'https://rup4a04-c01.tos-ap-southeast-1.bytepluses.com/newsvr-2025.txt',
+    'https://rup4a04-c02.tos-cn-hongkong.bytepluses.com/newsvr-2025.txt',
+    'https://rup4a04-c03.tos-cn-beijing.bytepluses.com.cn/newsvr-2025.txt',
+  ];
+  // 封面图 CDN（/media/albums/{id}.jpg 已验证可用）
+  const COVER_HOSTS = [
+    'https://cdn-msp.jmapiproxy1.cc',
+    'https://cdn-msp.jmapiproxy2.cc',
+    'https://cdn-msp.jmapinodeudzn.net',
+    'https://www.cdnhjk.net',
+  ];
+
+  const API_DOMAIN_TTL = 6 * 60 * 60 * 1000; // 6 小时
+  let apiDomainsCache: { list: string[]; fetchedAt: number } | null = null;
+
+  /** AES-256-ECB 解密，key = md5(ts + secret)，对齐 JmCryptoTool.decode_resp_data */
+  function decryptData(data: string, ts: string, secret: string): string {
+    const key = Buffer.from(crypto.createHash('md5').update(ts + secret).digest('hex'), 'utf8');
+    const decipher = crypto.createDecipheriv('aes-256-ecb', key, null);
+    decipher.setAutoPadding(false);
+    const dec = Buffer.concat([decipher.update(Buffer.from(data, 'base64')), decipher.final()]);
+    const pad = dec[dec.length - 1];
+    return dec.slice(0, dec.length - pad).toString('utf8');
+  }
+
+  /** 获取最新移动端 API 域名列表（带缓存），失败时回退到内置域名 */
+  async function fetchApiDomains(): Promise<string[]> {
+    if (apiDomainsCache && Date.now() - apiDomainsCache.fetchedAt < API_DOMAIN_TTL) {
+      return apiDomainsCache.list;
+    }
+    for (const url of DOMAIN_SERVER_URLS) {
+      try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (!resp.ok) continue;
+        let text = await resp.text();
+        while (text && text.charCodeAt(0) < 32) text = text.slice(1);
+        const json = JSON.parse(decryptData(text, '', API_DOMAIN_SERVER_SECRET));
+        if (Array.isArray(json.Server) && json.Server.length > 0) {
+          apiDomainsCache = { list: json.Server, fetchedAt: Date.now() };
+          console.log(`JM API domains updated: ${json.Server.join(', ')}`);
+          return json.Server;
+        }
+      } catch (e: any) {
+        console.log(`JM domain update failed from ${url}: ${e.message}`);
+      }
+    }
+    apiDomainsCache = { list: FALLBACK_API_DOMAINS, fetchedAt: Date.now() };
+    return FALLBACK_API_DOMAINS;
+  }
+
+  /** 拉取单个 album 详情，失败或不存在（data=[]）时返回 null */
+  async function fetchAlbum(domain: string, aid: string): Promise<any | null> {
+    const ts = Math.floor(Date.now() / 1000).toString();
+    const token = crypto.createHash('md5').update(ts + APP_TOKEN_SECRET).digest('hex');
+    const resp = await fetch(`https://${domain}/album?id=${aid}`, {
+      signal: AbortSignal.timeout(8000),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 9; V1938CT Build/PQ3A.190705.11211812; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.114 Safari/537.36',
+        'Accept-Encoding': 'gzip, deflate',
+        'token': token,
+        'tokenparam': `${ts},${APP_VERSION}`,
+      },
+    });
+    const result = await resp.json();
+    if (result?.code !== 200 || typeof result.data !== 'string') return null;
+    const decrypted = decryptData(result.data, ts, APP_TOKEN_SECRET);
+    const parsed = JSON.parse(decrypted);
+    return parsed?.album || parsed;
+  }
+
+  /** 抓取封面并转为 base64（防防盗链），全部失败时返回可用的原始 URL */
+  async function fetchCoverBase64(coverPath: string): Promise<string> {
+    for (const host of COVER_HOSTS) {
+      try {
+        const resp = await fetch(`${host}${coverPath}`, {
+          signal: AbortSignal.timeout(8000),
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+            'Referer': 'https://18comic.vip/',
+          },
+        });
+        if (resp.ok) {
+          const buf = Buffer.from(await resp.arrayBuffer());
+          const contentType = resp.headers.get('content-type') || 'image/jpeg';
+          return `data:${contentType};base64,${buf.toString('base64')}`;
+        }
+      } catch (e: any) {
+        console.log(`Failed to fetch cover from ${host}: ${e.message}`);
+      }
+    }
+    return `${COVER_HOSTS[0]}${coverPath}`;
+  }
+
+  // API Route: 解析 JM 漫画信息
   app.get('/api/jm/:jmId', async (req, res) => {
     const { jmId } = req.params;
     const cleanId = jmId.replace(/\D/g, '');
+    if (!cleanId) {
+      return res.status(400).json({ success: false, error: '无效的 JM 号。' });
+    }
 
-    const baseUrls = [
-      'https://www.cdnhjk.net',
-      'https://www.cdngwc.cc',
-      'https://www.cdngwc.net',
-      'https://www.cdngwc.club',
-      'https://www.cdnhjk.cc'
-    ];
-
-    let success = false;
+    const domains = await fetchApiDomains();
     let albumData: any = null;
-    let successfulBaseUrl = '';
 
-    // Generate basic JMComic token for native API requests
-    const ts = Math.floor(Date.now() / 1000).toString();
-    const ver = '2.0.19';
-    const tokenparam = `${ts},${ver}`;
-    const token = crypto.createHash('md5').update(ts + '18comicAPP').digest('hex');
-    const secret = '185Hcomic3PAPP7R'; // APP_DATA_SECRET
-
-    for (const baseUrl of baseUrls) {
+    for (const domain of domains) {
       try {
-        const url = `${baseUrl}/album?id=${cleanId}`;
-        const response = await fetch(url, {
-          signal: AbortSignal.timeout(8000),
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 9; V1938CT Build/PQ3A.190705.11211812; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.114 Safari/537.36',
-            'token': token,
-            'tokenparam': tokenparam,
-            'Accept-Encoding': 'identity'
-          }
-        });
-
-        const result = await response.json();
-        if (result && result.code === 200 && typeof result.data === 'string') {
-          // Decrypt the data
-          const keyStr = ts + secret;
-           const keyHex = crypto.createHash('md5').update(keyStr).digest('hex');
-           const key = Buffer.from(keyHex, 'utf8');
-           const decipher = crypto.createDecipheriv('aes-256-ecb', key, null);
-           decipher.setAutoPadding(false); // Manually handle padding
-          
-          const encryptedBuf = Buffer.from(result.data, 'base64');
-          const decryptedBuf = Buffer.concat([decipher.update(encryptedBuf), decipher.final()]);
-          
-          // PKCS7 unpadding
-          const pad = decryptedBuf[decryptedBuf.length - 1];
-          const unpaddedBuf = decryptedBuf.slice(0, decryptedBuf.length - pad);
-          const jsonStr = unpaddedBuf.toString('utf8');
-          
-          const parsedData = JSON.parse(jsonStr);
-          
-          const album = parsedData?.album || parsedData;
-          if (album && (album.id || album.name || album.title)) {
-            albumData = album;
-            success = true;
-            successfulBaseUrl = baseUrl;
-            break;
-          }
-        } else if (result && result.code === 200 && Array.isArray(result.data) && result.data.length === 0) {
-           // 404 conceptually (empty data)
-           continue;
+        const album = await fetchAlbum(domain, cleanId);
+        if (album && (album.id || album.name)) {
+          albumData = album;
+          break;
         }
-      } catch (error: any) {
-        console.log(`Failed to fetch from ${baseUrl}: ${error.message}`);
-        if (error.response) {
-          console.log(error.response.data);
-        }
+      } catch (e: any) {
+        console.log(`Failed to fetch album from ${domain}: ${e.message}`);
       }
     }
 
-    if (success && albumData) {
-      const title = albumData.name || albumData.title || `JM${cleanId} Title`;
-      const description = albumData.description || albumData.intro || '';
-      const coverUrl = albumData.photo_url || albumData.cover || `https://cdn-us.jmapiproxy.vip/media/albums/${cleanId}.jpg`;
-      
-      let tags: string[] = [];
-      if (Array.isArray(albumData.tags)) {
-        tags = albumData.tags.map((t: any) => typeof t === 'string' ? t : (t.name || t.title || ''));
-      } else if (typeof albumData.tags === 'string') {
-        tags = [albumData.tags];
-      }
-
-      let authors: string[] = [];
-      if (Array.isArray(albumData.author)) {
-        authors = albumData.author.map((a: any) => typeof a === 'string' ? a : (a.name || a.title || ''));
-      } else if (typeof albumData.author === 'string') {
-        authors = [albumData.author];
-      }
-
-      let finalCoverUrl = coverUrl;
-      const mediaNodes = [
-        'https://www.cdnhjk.net',
-        'https://cdn-us.jmapiproxy.vip',
-        'https://cdn-hk.jmapiproxy.vip'
-      ];
-      
-      let fetchedBase64 = false;
-      for (const node of mediaNodes) {
-        if (fetchedBase64) break;
-        try {
-          const coverObj = new URL(coverUrl);
-          const fetchCoverUrl = `${node}${coverObj.pathname}`;
-          
-          const coverResponse = await fetch(fetchCoverUrl, {
-            signal: AbortSignal.timeout(8000),
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-              'Referer': 'https://jmcomic.ltd/',
-            }
-          });
-          
-          if (coverResponse.ok) {
-            const arrayBuffer = await coverResponse.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            const base64 = buffer.toString('base64');
-            const contentType = coverResponse.headers.get('content-type') || 'image/jpeg';
-            finalCoverUrl = `data:${contentType};base64,${base64}`;
-            fetchedBase64 = true;
-          }
-        } catch (err) {
-          console.log(`Failed to fetch cover image from ${node}: ${(err as Error).message}`);
-        }
-      }
-
-      res.json({
-        success: true,
-        data: {
-          jmId: cleanId,
-          title,
-          description,
-          coverUrl: finalCoverUrl,
-          authors: authors.length ? authors : ['Unknown'],
-          tags: tags.length ? tags : [],
-          pages: parseInt(albumData.page_count || albumData.pages || "0") || 0
-        }
+    if (!albumData) {
+      return res.status(400).json({
+        success: false,
+        error: '解析失败，无法连接到 JM API 或该漫画不存在。',
       });
-      return;
     }
 
-    // Fallback if all URLs fail or not found
-    res.status(400).json({
-      success: false,
-      error: '解析失败，无法连接到 JM API 或该漫画不存在。'
+    const title = albumData.name || albumData.title || `JM${cleanId} Title`;
+    const description = albumData.description || '';
+
+    let tags: string[] = [];
+    if (Array.isArray(albumData.tags)) {
+      tags = albumData.tags
+        .map((t: any) => (typeof t === 'string' ? t : t.name || t.title || ''))
+        .filter(Boolean);
+    } else if (typeof albumData.tags === 'string') {
+      tags = [albumData.tags];
+    }
+
+    let authors: string[] = [];
+    if (Array.isArray(albumData.author)) {
+      authors = albumData.author
+        .map((a: any) => (typeof a === 'string' ? a : a.name || a.title || ''))
+        .filter(Boolean);
+    } else if (typeof albumData.author === 'string') {
+      authors = [albumData.author];
+    }
+
+    const coverUrl = await fetchCoverBase64(`/media/albums/${cleanId}.jpg`);
+
+    res.json({
+      success: true,
+      data: {
+        jmId: cleanId,
+        title,
+        description,
+        coverUrl,
+        authors: authors.length ? authors : ['Unknown'],
+        tags,
+        pages: parseInt(albumData.total_photos || albumData.page_count || albumData.pages || '0', 10) || 0,
+      },
     });
   });
 

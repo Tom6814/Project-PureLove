@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { addDoc, collection } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Info, Send, Loader2, CheckCircle } from 'lucide-react';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 import { getValidImageUrl } from '../lib/utils';
 
 export default function SubmitPage() {
@@ -78,29 +77,32 @@ export default function SubmitPage() {
     try {
       const authorsArr = formData.authors.split(',').map(s => s.trim()).filter(Boolean);
       const tagsArr = formData.tags.split(',').map(s => s.trim()).filter(Boolean);
-      await addDoc(collection(db, 'mangas'), {
-        jmId: preview.jmId,
-        title: formData.title,
-        description: formData.description,
-        review: formData.review,
-        coverUrl: formData.coverUrl,
-        authors: authorsArr.length ? authorsArr : ['Unknown'],
-        tags: tagsArr.length ? tagsArr : [],
-        pages: preview.pages || 0,
-        category: formData.category,
-        isR18,
-        status: 'pending',
-        submittedBy: user.uid,
-        submittedByName: user.displayName || '匿名用户',
-        createdAt: new Date().toISOString()
-      });
+      const { error } = await supabase
+        .from('mangas')
+        .insert({
+          jm_id: preview.jmId,
+          title: formData.title,
+          description: formData.description,
+          review: formData.review,
+          cover_url: formData.coverUrl,
+          authors: authorsArr.length ? authorsArr : ['Unknown'],
+          tags: tagsArr.length ? tagsArr : [],
+          pages: preview.pages || 0,
+          category: formData.category,
+          is_r18: isR18,
+          status: 'pending',
+          submitted_by: user.uid,
+          submitted_by_name: user.displayName || '匿名用户',
+          created_at: new Date().toISOString(),
+        });
+      if (error) throw error;
       setToastMessage('提交成功，请等待审核');
       setTimeout(() => {
         setToastMessage('');
         navigate('/');
       }, 2000);
     } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, 'mangas');
+      handleSupabaseError(err, OperationType.CREATE, 'mangas');
       setError('Failed to submit. Please try again.');
     } finally {
       setSubmitting(false);
