@@ -217,34 +217,28 @@ export function isUniqueViolation(error: unknown): boolean {
 }
 
 // ============================================================
-// Source credentials & cache (multi-source submit flow)
+// Source credentials — 仅存浏览器缓存（本站不存储密码）
 // ============================================================
+const CRED_STORAGE_PREFIX = 'rn_source_cred_';
+
 export async function getSourceCredentials(source: string): Promise<Record<string, string> | null> {
-  const { data, error } = await supabase
-    .from('source_credentials')
-    .select('payload')
-    .eq('source', source)
-    .maybeSingle();
-  if (error || !data) return null;
-  return (data.payload as Record<string, string>) ?? null;
+  try {
+    const raw = localStorage.getItem(CRED_STORAGE_PREFIX + source);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function saveSourceCredentials(source: string, payload: Record<string, string>) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error('未登录');
-  const { error } = await supabase
-    .from('source_credentials')
-    .upsert({ user_id: user.id, source, payload }, { onConflict: 'user_id,source' });
-  if (error) throw error;
+  localStorage.setItem(CRED_STORAGE_PREFIX + source, JSON.stringify(payload));
 }
 
 export async function deleteSourceCredentials(source: string) {
-  const { error } = await supabase.from('source_credentials').delete().eq('source', source);
-  if (error) throw error;
+  localStorage.removeItem(CRED_STORAGE_PREFIX + source);
 }
 
+// 解析结果缓存（漫画元数据，不含密码）
 export async function getSourceCache<T>(cacheKey: string): Promise<T | null> {
   const { data, error } = await supabase
     .from('source_cache')

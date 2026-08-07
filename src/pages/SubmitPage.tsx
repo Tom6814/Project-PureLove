@@ -318,7 +318,7 @@ export default function SubmitPage() {
                   {sourceInfo?.name} 需要登录
                 </h3>
                 <p className="text-[12px] text-theme-muted mb-5">
-                  登录后才能搜索该源。凭证仅本人可见、保存在本站，解析结果会缓存，下次可直接使用。
+                  登录后才能搜索该源。用户名和密码仅保存在你的浏览器缓存中，本站只做漫画内容解析，不存储你的密码。
                 </p>
                 <div className="space-y-3">
                   <input
