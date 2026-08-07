@@ -238,6 +238,120 @@ export async function deleteSourceCredentials(source: string) {
   localStorage.removeItem(CRED_STORAGE_PREFIX + source);
 }
 
+// ============================================================
+// Source accounts — 服务器存储的源账号（仅开启收藏夹功能时写入）
+// 用于服务端每日拉取用户收藏并公开显示在个人主页。
+// 未开启收藏夹时，用户名密码仅保存在浏览器缓存（见上）。
+// ============================================================
+export interface SourceAccount {
+  id: string;
+  userId: string;
+  source: string;
+  username: string;
+  password: string;
+  favoritesEnabled: boolean;
+  updatedAt: string;
+}
+
+export function mapSourceAccountRow(row: Record<string, any>): SourceAccount {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    source: row.source,
+    username: row.username,
+    password: row.password ?? '',
+    favoritesEnabled: row.favorites_enabled ?? false,
+    updatedAt: row.updated_at,
+  };
+}
+
+/** 读取当前用户的所有源账号（含密码列，仅本人可见；此列仅用于开启收藏夹的场景） */
+export async function getSourceAccounts(): Promise<SourceAccount[]> {
+  const { data, error } = await supabase.from('source_accounts').select('*');
+  if (error) {
+    console.error('source_accounts load failed:', error.message);
+    return [];
+  }
+  return (data ?? []).map(mapSourceAccountRow);
+}
+
+/** 保存/更新某个源的账号。开启收藏夹时写入服务器；关闭时删除服务器记录。 */
+export async function upsertSourceAccount(
+  userId: string,
+  source: string,
+  payload: { username: string; password: string; favoritesEnabled: boolean }
+) {
+  if (!payload.favoritesEnabled) {
+    // 关闭收藏夹：不向服务器存储密码，仅保留本地缓存
+    await supabase.from('source_accounts').delete().eq('user_id', userId).eq('source', source);
+    await saveSourceCredentials(source, { username: payload.username, password: payload.password });
+    return { serverStored: false };
+  }
+  // 开启收藏夹：用户名密码存服务器，供每日拉取收藏
+  const { error } = await supabase.from('source_accounts').upsert(
+    {
+      user_id: userId,
+      source,
+      username: payload.username,
+      password: payload.password,
+      favorites_enabled: true,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,source' }
+  );
+  if (error) throw error;
+  // 同时保留本地凭据，便于提交页直接使用
+  await saveSourceCredentials(source, { username: payload.username, password: payload.password });
+  return { serverStored: true };
+}
+
+export async function deleteSourceAccount(userId: string, source: string) {
+  const { error } = await supabase.from('source_accounts').delete().eq('user_id', userId).eq('source', source);
+  if (error) throw error;
+  await deleteSourceCredentials(source);
+}
+
+// ============================================================
+// User favorites — 个人主页公开展示的收藏快照（服务端每日覆盖写入）
+// ============================================================
+export interface UserFavorite {
+  id: string;
+  userId: string;
+  source: string;
+  itemId: string;
+  title: string;
+  coverUrl: string;
+  authors: string[];
+  fetchedAt: string;
+}
+
+export function mapUserFavoriteRow(row: Record<string, any>): UserFavorite {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    source: row.source,
+    itemId: row.item_id,
+    title: row.title,
+    coverUrl: row.cover_url ?? '',
+    authors: row.authors ?? [],
+    fetchedAt: row.fetched_at,
+  };
+}
+
+/** 读取某用户在个人主页公开显示的收藏（快照） */
+export async function getPublicFavorites(userId: string): Promise<UserFavorite[]> {
+  const { data, error } = await supabase
+    .from('user_favorites')
+    .select('*')
+    .eq('user_id', userId)
+    .order('source', { ascending: true });
+  if (error) {
+    console.error('user_favorites load failed:', error.message);
+    return [];
+  }
+  return (data ?? []).map(mapUserFavoriteRow);
+}
+
 // 解析结果缓存（漫画元数据，不含密码）
 export async function getSourceCache<T>(cacheKey: string): Promise<T | null> {
   const { data, error } = await supabase

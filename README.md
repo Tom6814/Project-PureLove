@@ -35,6 +35,12 @@
 ### 4. 直达彼岸 (Direct Access)
 不再需要繁琐的复制粘贴搜索，每一部获批的佳作详情页都设有了**「前往观看」**的直达按钮，点击即可直通禁漫的详情页。
 
+### 5. 多元收藏殿堂 (Multi-Source & Favorites)
+圣殿支持 **10 大漫画源**（禁漫 / 哔咔 / e-hentai / nhentai / 拷贝漫画 / NoyAcg / Komiic / 包子漫画 / 再漫画 / 绅士漫画）按名字搜索并一键解析封面、作者与详情。
+* **源账号管理**：你可在「个人设置 → 源账号与收藏夹」中为不同源添加账号（可添加多个）。
+* **收藏夹显示**：开启「收藏夹显示」后，用户名与密码将存入服务器，服务端每日自动从各源拉取你的收藏，公开显示在个人主页（每天覆盖更新）。未开启时，用户名密码仅保存在你的浏览器缓存中，不存服务器。
+* **省去一步**：在设置页保存过账号后，提交页会直接使用该账号自动登录，无需重复输入。
+
 ---
 
 ## 🛠️ 圣殿基石 (Tech Stack)
@@ -49,6 +55,8 @@
 * **云端王座**: 完美适配 `Zeabur` 的 Docker 全栈容器化部署
 
 > 环境变量：复制 `.env.example` 为 `.env` 并填入你的 Supabase 项目地址与 Publishable Key（`VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`）。
+>
+> 如需启用「收藏夹每日同步」任务，还需在 `.env` 中配置 `SUPABASE_SERVICE_ROLE_KEY`（从 Supabase Dashboard → Settings → API → Service Role Key 获取，切勿暴露到前端）。
 
 ---
 

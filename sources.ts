@@ -27,9 +27,12 @@ export interface SourceAdapter {
   id: string;
   name: string;
   needsLogin: boolean;
+  /** 该源是否支持收藏夹（拉取用户收藏列表） */
+  supportsFavorites?: boolean;
   search(q: string, page: number, cred?: Credentials): Promise<SourceSearchItem[]>;
   detail(id: string, cred?: Credentials): Promise<SourceDetail | null>;
   login?(username: string, password: string): Promise<{ ok: boolean; error?: string; credentials?: Credentials }>;
+  favorites?(cred?: Credentials): Promise<SourceSearchItem[]>;
 }
 
 // ------------------------------------------------------------
@@ -128,20 +131,26 @@ async function jmDomains(): Promise<string[]> {
   return JM_FALLBACK_DOMAINS;
 }
 
-async function jmRequest(pathWithQuery: string): Promise<any | null> {
+async function jmRequest(pathWithQuery: string, opts: { method?: string; body?: string; cookie?: string } = {}): Promise<any | null> {
+  const { method = 'GET', body, cookie } = opts;
   const domains = await jmDomains();
   for (const domain of domains) {
     try {
       const ts = Math.floor(Date.now() / 1000).toString();
       const token = md5(ts + JM_TOKEN_SECRET);
+      const headers: Record<string, string> = {
+        'User-Agent': UA_ANDROID,
+        'Accept-Encoding': 'gzip, deflate',
+        token,
+        tokenparam: `${ts},2.0.30`,
+      };
+      if (body) headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      if (cookie) headers['Cookie'] = cookie;
       const resp = await fetch(`https://${domain}${pathWithQuery}`, {
+        method,
         signal: AbortSignal.timeout(8000),
-        headers: {
-          'User-Agent': UA_ANDROID,
-          'Accept-Encoding': 'gzip, deflate',
-          token,
-          tokenparam: `${ts},2.0.30`,
-        },
+        headers,
+        ...(body ? { body } : {}),
       });
       const result = await resp.json();
       if (result?.code === 200 && typeof result.data === 'string') {
@@ -167,6 +176,7 @@ const jmAdapter: SourceAdapter = {
   id: 'jm',
   name: '禁漫 (JM)',
   needsLogin: false,
+  supportsFavorites: true,
 
   async search(q, page) {
     const data = await jmRequest(`/search?search_query=${encodeURIComponent(q)}&page=${page}&o=`);
@@ -194,6 +204,40 @@ const jmAdapter: SourceAdapter = {
       tags: toArr(data.tags),
       pages: parseInt(data.total_photos || '0', 10) || 0,
     };
+  },
+
+  // 登录后获取收藏夹。cred.avs 为登录接口返回的 s 值，作为 cookie AVS 使用。
+  async login(username, password) {
+    const data = await jmRequest('/login', {
+      method: 'POST',
+      body: new URLSearchParams({ username, password }).toString(),
+    });
+    if (data && data.s) return { ok: true, credentials: { avs: String(data.s) } };
+    return { ok: false, error: '登录失败，请检查账号密码' };
+  },
+
+  async favorites(cred) {
+    if (!cred?.avs) return [];
+    // 逐页拉取收藏，最多取前 5 页
+    const items: SourceSearchItem[] = [];
+    for (let page = 1; page <= 5; page++) {
+      const data = await jmRequest(
+        `/favorite?page=${page}&folder_id=0&o=la`,
+        { cookie: `AVS=${cred.avs}` }
+      );
+      const list = Array.isArray(data?.list) ? data.list : [];
+      for (const it of list) {
+        items.push({
+          id: String(it.id),
+          title: it.name || '',
+          coverUrl: await toBase64Cover(jmCoverUrl(it)),
+          authors: toArr(it.author),
+        });
+      }
+      const total = parseInt(data?.total || '0', 10) || 0;
+      if (items.length >= total || items.length === 0 || list.length === 0) break;
+    }
+    return items;
   },
 };
 
@@ -252,6 +296,7 @@ const bikaAdapter: SourceAdapter = {
   id: 'bika',
   name: '哔咔 (Bika)',
   needsLogin: true,
+  supportsFavorites: true,
 
   async search(q, page, cred) {
     if (!cred?.token) throw new Error('NEED_LOGIN');
@@ -294,6 +339,21 @@ const bikaAdapter: SourceAdapter = {
     });
     if (data?.token) return { ok: true, credentials: { token: data.token } };
     return { ok: false, error: '登录失败' };
+  },
+
+  // 我的收藏（需要登录 token）
+  async favorites(cred) {
+    if (!cred?.token) return [];
+    const data = await bikaFetch('favorites?page=1', { token: cred.token });
+    const docs = data.favorites?.docs || [];
+    return Promise.all(
+      docs.map(async (c: any) => ({
+        id: c._id,
+        title: c.title || '',
+        coverUrl: await toBase64Cover(bikaCover(c.thumb)),
+        authors: toArr(c.author),
+      }))
+    );
   },
 };
 

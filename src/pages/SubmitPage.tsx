@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase, getSourceCredentials, saveSourceCredentials, deleteSourceCredentials, getSourceCache, saveSourceCache } from '../lib/supabase';
+import { supabase, getSourceCredentials, saveSourceCredentials, deleteSourceCredentials, getSourceCache, saveSourceCache, getSourceAccounts } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -82,9 +82,31 @@ export default function SubmitPage() {
     setError('');
     const info = sources.find((s) => s.id === id);
     if (info?.needsLogin) {
-      // 需登录的源：先检查是否已有保存的凭证，没有则先登录再搜索
+      // 需登录的源：先检查本地缓存；若无，则尝试用服务器保存的账号（设置页开启收藏夹时存储）自动登录
       const cred = await getSourceCredentials(id);
-      setLoggedIn(!!cred);
+      if (cred) {
+        setLoggedIn(true);
+        return;
+      }
+      try {
+        const accounts = await getSourceAccounts();
+        const saved = accounts.find((a) => a.source === id);
+        if (saved?.username && saved?.password) {
+          const res = await axios.post('/api/sources/login', {
+            source: id,
+            username: saved.username,
+            password: saved.password,
+          });
+          if (res.data.success) {
+            await saveSourceCredentials(id, res.data.data || {});
+            setLoggedIn(true);
+            return;
+          }
+        }
+      } catch {
+        /* 服务器账号不可用时回退到手动登录 */
+      }
+      setLoggedIn(false);
     } else {
       setLoggedIn(true);
     }

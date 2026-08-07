@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { supabase, mapProfileRow, mapMangaRow } from '../lib/supabase';
+import { supabase, mapProfileRow, mapMangaRow, getPublicFavorites, UserFavorite } from '../lib/supabase';
 import { UserProfile } from '../contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
-import { getValidImageUrl, cn } from '../lib/utils';
+import { Loader2, Bookmark } from 'lucide-react';
+import { getValidImageUrl, cn, getSourceName } from '../lib/utils';
 import { format } from 'date-fns';
 import { useSettings } from '../hooks/useSettings';
 
@@ -11,6 +11,7 @@ export default function UserPage() {
   const { id } = useParams<{ id: string }>();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [mangas, setMangas] = useState<any[]>([]);
+  const [favorites, setFavorites] = useState<UserFavorite[]>([]);
   const [loading, setLoading] = useState(true);
   const { settings } = useSettings();
 
@@ -36,6 +37,10 @@ export default function UserPage() {
           .eq('status', 'approved');
         if (mangaError) throw mangaError;
         setMangas((mangaSnap ?? []).map(mapMangaRow));
+
+        // Fetch favorites snapshot (public, populated by the server cron)
+        const favs = await getPublicFavorites(id);
+        setFavorites(favs);
 
       } catch (err) {
         console.error("Failed to load user profile", err);
@@ -128,6 +133,56 @@ export default function UserPage() {
           </div>
         </div>
 
+        {/* Favorites (public snapshot, synced daily from connected sources) */}
+        {favorites.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-xl font-serif text-theme-ink mb-6 pb-2 border-b border-[#eee] border-opacity-50 flex items-center gap-2">
+              <Bookmark className="w-5 h-5 text-theme-accent" />
+              TA 的收藏 ({favorites.length})
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+              {favorites.map((fav) => (
+                <a
+                  key={`${fav.source}-${fav.itemId}`}
+                  href={favSourceUrl(fav)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block bg-white/80 backdrop-blur-sm rounded-xl overflow-hidden shadow-sm border border-[#eee] transition-all hover:-translate-y-1 hover:shadow-md"
+                >
+                  <div className="aspect-[2/3] overflow-hidden bg-[#e5e5e5] relative">
+                    {fav.coverUrl ? (
+                      <img
+                        src={getValidImageUrl(fav.coverUrl)}
+                        alt={fav.title}
+                        className="w-full h-full object-cover group-hover:opacity-90 transition-all duration-500"
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-theme-muted text-[11px]">
+                        无封面
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <div className="font-medium text-[13px] text-theme-ink mb-1 whitespace-nowrap overflow-hidden text-ellipsis" title={fav.title}>
+                      {fav.title}
+                    </div>
+                    <div className="flex justify-between items-center text-[11px] text-theme-accent">
+                      <span className="text-theme-muted">{getSourceName(fav.source)}</span>
+                      {fav.authors?.length > 0 && (
+                        <span className="truncate ml-2 text-theme-muted" title={fav.authors.join(', ')}>
+                          {fav.authors.join(' / ')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Recommended Mangas */}
         <div className="mt-12">
           <h2 className="text-xl font-serif text-theme-ink mb-6 pb-2 border-b border-[#eee] border-opacity-50">
@@ -172,4 +227,25 @@ export default function UserPage() {
       </div>
     </div>
   );
+}
+
+/** 收藏条目跳转到源站详情页 */
+function favSourceUrl(fav: UserFavorite): string {
+  const id = encodeURIComponent(fav.itemId);
+  switch (fav.source) {
+    case 'jm': return `https://18comic.vip/album/${id}`;
+    case 'bika': return `https://www.picacomic.com/comics/${id}`;
+    case 'ehentai': {
+      const [gid, token] = String(fav.itemId).split('-');
+      return gid ? `https://e-hentai.org/g/${gid}/${token || ''}/` : 'https://e-hentai.org/';
+    }
+    case 'nhentai': return `https://nhentai.net/g/${id}/`;
+    case 'copymanga': return `https://www.copymanga.tv/comic/${id}`;
+    case 'noyacg': return `https://noy.ac/${id}/`;
+    case 'komiic': return `https://komiic.com/comic/${id}`;
+    case 'baozimh': return `https://www.baozimh.com/comic/${id}`;
+    case 'zaimanhua': return `https://www.zaimanhua.com/comic/${id}`;
+    case 'wnacg': return `https://wnacg.com/photos-index-aid-${id}.html`;
+    default: return '#';
+  }
 }

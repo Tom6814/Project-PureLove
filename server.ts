@@ -1,7 +1,76 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { sources, getSource } from './sources';
+
+// ============================================================
+// 收藏夹每日同步任务
+// 使用服务器存储的源账号（source_accounts），逐个拉取用户在各源的收藏，
+// 覆盖写入 user_favorites 快照（覆盖前一天的），供个人主页公开展示。
+// 需要 SUPABASE_SERVICE_ROLE_KEY 才能跨用户读写；未配置则跳过并打印提示。
+// ============================================================
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+async function syncAllFavorites() {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    console.warn('[favorites] 未配置 SUPABASE_SERVICE_ROLE_KEY，跳过每日收藏同步。');
+    return;
+  }
+  const admin = createSupabaseClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  try {
+    // 1. 读取所有开启了收藏功能的源账号（RPC，绕过 RLS）
+    const { data: accounts, error: listErr } = await admin.rpc('prn_list_sync_accounts');
+    if (listErr) throw listErr;
+    if (!Array.isArray(accounts) || accounts.length === 0) {
+      console.log('[favorites] 没有开启收藏夹的账号，跳过本次同步。');
+      return;
+    }
+    console.log(`[favorites] 开始同步 ${accounts.length} 个账号的收藏...`);
+    let ok = 0, fail = 0;
+    for (const acc of accounts) {
+      const { user_id: userId, source, username, password } = acc;
+      const adapter = getSource(String(source || ''));
+      if (!adapter || !adapter.favorites) {
+        // 该源不支持收藏：清空该用户该源的历史快照
+        try { await admin.rpc('prn_replace_favorites', { p_user: userId, p_source: source, p_items: [] }); } catch { /* ignore */ }
+        continue;
+      }
+      try {
+        let cred: Record<string, string> | undefined;
+        // 需要登录的源先登录拿凭据
+        if (adapter.login) {
+          const loginRes = await adapter.login(String(username || ''), String(password || ''));
+          if (!loginRes.ok) throw new Error(loginRes.error || '登录失败');
+          cred = loginRes.credentials;
+        }
+        const items = await adapter.favorites(cred);
+        await admin.rpc('prn_replace_favorites', {
+          p_user: userId,
+          p_source: source,
+          p_items: (items || []).map((it) => ({ item_id: it.id, title: it.title, cover_url: it.coverUrl, authors: it.authors || [] })),
+        });
+        ok++;
+        console.log(`[favorites] ${source} 同步成功：${(items || []).length} 项`);
+      } catch (e: any) {
+        fail++;
+        console.error(`[favorites] ${source} 同步失败：`, e?.message || e);
+      }
+    }
+    console.log(`[favorites] 同步完成：成功 ${ok}，失败 ${fail}`);
+  } catch (e: any) {
+    console.error('[favorites] 同步任务异常：', e?.message || e);
+  }
+}
+
+// 启动时立即跑一次，之后每天跑一次（简单起见用 24h 定时器）
+function startFavoritesCron() {
+  syncAllFavorites();
+  setInterval(syncAllFavorites, 24 * 60 * 60 * 1000);
+}
 
 async function startServer() {
   const app = express();
@@ -42,7 +111,15 @@ async function startServer() {
 
   // 可用源列表
   app.get('/api/sources', (_req, res) => {
-    res.json({ success: true, data: sources.map((s) => ({ id: s.id, name: s.name, needsLogin: s.needsLogin })) });
+    res.json({
+      success: true,
+      data: sources.map((s) => ({
+        id: s.id,
+        name: s.name,
+        needsLogin: s.needsLogin,
+        supportsFavorites: !!s.favorites && !!s.supportsFavorites,
+      })),
+    });
   });
 
   // 按漫画名搜索（多源，封面一律转 base64）
@@ -90,6 +167,12 @@ async function startServer() {
     }
   });
 
+  // 手动触发一次收藏同步（便于管理员/站长在配置后立即刷新）
+  app.post('/api/favorites/sync', async (_req, res) => {
+    await syncAllFavorites();
+    res.json({ success: true });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -110,4 +193,5 @@ async function startServer() {
   });
 }
 
+startFavoritesCron();
 startServer();
