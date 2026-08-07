@@ -1,12 +1,51 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Heart, Shield, Sparkles, Star } from 'lucide-react';
+import {
+  ArrowRight,
+  Heart,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Globe2,
+  Quote,
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase, mapMangaRow, type Manga } from '../lib/supabase';
+import { getSourceName, getValidImageUrl } from '../lib/utils';
 
 export default function LandingPage() {
   const { user, openAuthModal } = useAuth();
-  const navigate = useNavigate();
+  const [latest, setLatest] = useState<Manga[]>([]);
+  const [stats, setStats] = useState({ approved: 0, contributors: 0 });
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const [{ data: approved }, { count: contributors }] = await Promise.all([
+          supabase
+            .from('mangas')
+            .select('*')
+            .eq('status', 'approved')
+            .order('created_at', { ascending: false })
+            .limit(4),
+          supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        ]);
+        if (!active) return;
+        setLatest((approved ?? []).map(mapMangaRow));
+        setStats({
+          approved: approved?.length ?? 0,
+          contributors: contributors ?? 0,
+        });
+      } catch {
+        /* keep empty state silently */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSubmitClick = (e: React.MouseEvent) => {
     if (!user) {
@@ -21,123 +60,330 @@ export default function LandingPage() {
       <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[500px] bg-theme-accent/5 rounded-[100%] blur-[120px] pointer-events-none z-0" />
       <div className="fixed bottom-0 right-[-10%] w-[60%] h-[600px] bg-theme-accent/5 rounded-[100%] blur-[120px] pointer-events-none z-0" />
 
-      {/* Hero */}
-      <section className="relative flex flex-col lg:flex-row items-center gap-12 lg:gap-16 pt-12 lg:pt-24 z-10">
-         {/* Text Content */}
-         <div className="flex-1 space-y-6 lg:space-y-8 w-full">
-           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
-             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-theme-accent/5 border border-theme-accent/20 text-theme-accent mb-6 lg:mb-8 text-[11px] tracking-[0.1em] uppercase font-medium shadow-sm">
-               <Sparkles className="w-3.5 h-3.5" />
-               <span>Artistic Flair Theme</span>
-             </div>
-             <h1 className="font-serif text-[42px] md:text-[56px] lg:text-[76px] leading-[1.1] text-theme-ink mb-6 tracking-[-0.02em]">
-               守护纯爱的 <br className="hidden lg:block" />
-               <span className="italic text-theme-accent font-light">最后净土</span>
-             </h1>
-             <p className="text-theme-muted text-[15px] md:text-[16px] leading-[1.8] max-w-md font-light">
-               在这个喧闹的世界里，我们为您甄选最高质量的甜美纯爱本。<br className="hidden lg:block"/>告别胃痛与纠结，只保留最纯粹、最温暖的恋爱心跳。每一本都由社区热爱者精心提交与严格审核。
-             </p>
-           </motion.div>
-           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }} className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-             <Link to="/explore" className="inline-flex items-center justify-center gap-2 bg-theme-ink text-white px-8 py-3.5 rounded text-[13px] font-medium hover:bg-theme-accent hover:shadow-lg hover:shadow-theme-accent/20 transition-all duration-300 w-full sm:w-auto">
-               进入漫库探寻 <ArrowRight className="w-4 h-4" />
-             </Link>
-             <Link to="/submit" onClick={handleSubmitClick} className="inline-flex items-center justify-center gap-2 bg-white text-theme-ink border border-[#ddd] px-8 py-3.5 rounded text-[13px] font-medium hover:bg-theme-bg transition-colors duration-300 w-full sm:w-auto shadow-sm">
-               提交推荐
-             </Link>
-           </motion.div>
-         </div>
-         
-         {/* Hero Imagery - Editorial Collage */}
-         <div className="flex-1 w-full relative h-[400px] lg:h-[600px] hidden lg:block z-10 shrink-0">
-            <div className="relative w-full h-full max-w-[550px] mx-auto">
-              <motion.img 
-                initial={{ opacity: 0, x: 30, y: 20, rotate: -4 }} animate={{ opacity: 1, x: 0, y: 0, rotate: -4 }} transition={{ duration: 1, delay: 0.2, type: "spring" }}
-                src="https://images.unsplash.com/photo-1544640808-32cb4ceaa014?auto=format&fit=crop&q=80&w=600" 
-                alt="Comic cover back" 
-                className="absolute left-[0%] top-[15%] w-[45%] aspect-[2/3] object-cover rounded shadow-theme-card border-[8px] border-white z-10"
-                referrerPolicy="no-referrer"
-              />
-              <motion.img 
-                initial={{ opacity: 0, x: -30, y: -20, rotate: 6 }} animate={{ opacity: 1, x: 0, y: 0, rotate: 6 }} transition={{ duration: 1, delay: 0.4, type: "spring" }}
-                src="https://images.unsplash.com/photo-1560930950-5cc20e80e392?auto=format&fit=crop&q=80&w=600" 
-                alt="Comic cover front" 
-                className="absolute right-[5%] top-[5%] w-[50%] aspect-[2/3] object-cover rounded shadow-2xl border-[8px] border-white z-20"
-                referrerPolicy="no-referrer"
-              />
-              <motion.img 
-                initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.6, type: "spring" }}
-                src="https://images.unsplash.com/photo-1580459314319-0604fc2982d5?auto=format&fit=crop&q=80&w=600" 
-                alt="Detail shot" 
-                className="absolute bottom-[5%] left-[15%] w-[55%] h-[160px] object-cover rounded shadow-xl border-[6px] border-white z-30 rotate-[-2deg]"
-                referrerPolicy="no-referrer"
-              />
-              
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6, delay: 0.8 }}
-                className="absolute -bottom-4 -right-4 bg-white/95 backdrop-blur p-4 rounded-lg shadow-xl border border-[#eee] z-40 flex items-center gap-4"
+      {/* HERO */}
+      <section className="relative pt-10 lg:pt-16 z-10">
+        <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+          <div className="lg:col-span-7 space-y-7">
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-theme-accent/20 text-theme-accent text-[11px] tracking-[0.18em] uppercase font-medium shadow-sm"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Project RN · Reject NTR</span>
+            </motion.div>
+
+            <motion.h1
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.05 }}
+              className="font-serif text-[44px] md:text-[60px] lg:text-[80px] leading-[1.05] text-theme-ink tracking-[-0.02em]"
+            >
+              拒绝牛头人，
+              <br />
+              <span className="italic text-theme-accent font-light">守护每一份</span>
+              <br className="hidden sm:block" />
+              纯真心跳。
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.15 }}
+              className="text-theme-muted text-[15px] md:text-[16px] leading-[1.85] max-w-lg font-light"
+            >
+              Project RN 收录 10 大漫画源头的纯爱本子，由站长与社区双重审核，
+              <br className="hidden md:block" />
+              把最甜、最真、最干净的恋爱故事留给你。
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.25 }}
+              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1"
+            >
+              <Link
+                to="/explore"
+                className="inline-flex items-center justify-center gap-2 bg-theme-ink text-white px-8 py-3.5 rounded text-[13px] font-medium hover:bg-theme-accent hover:shadow-lg hover:shadow-theme-accent/20 transition-all duration-300"
               >
-                <div className="w-10 h-10 bg-theme-accent/10 rounded-full flex items-center justify-center text-theme-accent">
-                   <Star className="w-5 h-5 fill-current" />
+                进入漫库探寻 <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link
+                to="/submit"
+                onClick={handleSubmitClick}
+                className="inline-flex items-center justify-center gap-2 bg-white text-theme-ink border border-[#ddd] px-8 py-3.5 rounded text-[13px] font-medium hover:bg-theme-bg transition-colors shadow-sm"
+              >
+                提交推荐
+              </Link>
+            </motion.div>
+          </div>
+
+          {/* Hero Imagery — editorial collaged covers */}
+          <div className="lg:col-span-5 hidden lg:block">
+            <div className="relative w-full h-[560px] max-w-[480px] mx-auto">
+              <motion.img
+                initial={{ opacity: 0, x: 30, rotate: -6 }}
+                animate={{ opacity: 1, x: 0, rotate: -6 }}
+                transition={{ duration: 0.8, delay: 0.2, type: 'spring' }}
+                src="https://images.unsplash.com/photo-1544640808-32cb4ceaa014?auto=format&fit=crop&q=80&w=600"
+                alt="Comic cover"
+                className="absolute left-[0%] top-[12%] w-[55%] aspect-[2/3] object-cover rounded shadow-theme-card border-[8px] border-white"
+                referrerPolicy="no-referrer"
+              />
+              <motion.img
+                initial={{ opacity: 0, x: -30, rotate: 6 }}
+                animate={{ opacity: 1, x: 0, rotate: 6 }}
+                transition={{ duration: 0.8, delay: 0.35, type: 'spring' }}
+                src="https://images.unsplash.com/photo-1560930950-5cc20e80e392?auto=format&fit=crop&q=80&w=600"
+                alt="Comic cover"
+                className="absolute right-[0%] top-[5%] w-[55%] aspect-[2/3] object-cover rounded shadow-2xl border-[8px] border-white z-10"
+                referrerPolicy="no-referrer"
+              />
+              <motion.div
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.6 }}
+                className="absolute bottom-[6%] left-[12%] bg-white/95 backdrop-blur px-4 py-3 rounded-lg shadow-xl border border-[#eee] z-20 flex items-center gap-3"
+              >
+                <div className="w-9 h-9 bg-theme-accent/10 rounded-full flex items-center justify-center text-theme-accent">
+                  <Star className="w-4 h-4 fill-current" />
                 </div>
                 <div>
-                  <div className="text-theme-ink font-serif text-[15px] font-medium">百万同好推荐</div>
-                  <div className="text-theme-muted text-[11px] tracking-wide uppercase">Community Choice</div>
+                  <div className="text-theme-ink font-serif text-[14px] font-medium leading-tight">
+                    社区同好甄选
+                  </div>
+                  <div className="text-theme-muted text-[10px] tracking-widest uppercase">
+                    Curated · Approved
+                  </div>
                 </div>
               </motion.div>
             </div>
-         </div>
+          </div>
+        </div>
       </section>
 
-      {/* Features */}
+      {/* STAT STRIP */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[#eee] border-y border-[#eee] -mx-4 sm:-mx-8 lg:-mx-10">
+        <Stat n={stats.approved} label="已收录纯爱本" suffix="部" />
+        <Stat n={10} label="支持漫画源" suffix="+" />
+        <Stat n={stats.contributors} label="活跃投稿人" />
+        <Stat n={4.8} label="平均甜度" suffix="★" decimals={1} />
+      </section>
+
+      {/* LATEST ADDITIONS */}
+      {latest.length > 0 && (
+        <section>
+          <div className="flex items-end justify-between mb-8 gap-4">
+            <div>
+              <div className="text-[11px] tracking-[0.2em] uppercase text-theme-accent font-medium mb-2">
+                Latest Additions
+              </div>
+              <h2 className="font-serif text-[28px] md:text-[32px] text-theme-ink font-light leading-tight">
+                最新收录
+              </h2>
+            </div>
+            <Link
+              to="/explore"
+              className="text-[12px] text-theme-muted hover:text-theme-accent transition-colors flex items-center gap-1 shrink-0"
+            >
+              查看全部 <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {latest.map((m, i) => (
+              <motion.div
+                key={m.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: i * 0.05 }}
+              >
+                <Link to={`/manga/${m.id}`} className="group block">
+                  <div className="aspect-[2/3] rounded-lg overflow-hidden bg-[#e5e5e5] mb-3 relative border border-black/[0.04]">
+                    {m.coverUrl ? (
+                      <img
+                        src={getValidImageUrl(m.coverUrl)}
+                        alt={m.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-theme-muted text-[11px]">
+                        No Cover
+                      </div>
+                    )}
+                    {m.isR18 && (
+                      <span className="absolute top-2 right-2 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider">
+                        R18
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[13px] font-medium text-theme-ink truncate" title={m.title}>
+                    {m.title}
+                  </div>
+                  <div className="text-[11px] text-theme-muted mt-0.5">
+                    {getSourceName(m.source)}
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* PILLARS */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-10 border-y border-[#eee] py-16 md:py-20">
-        <FeatureCard 
-          icon={<Shield className="w-5 h-5 text-theme-accent" />}
-          title="100% 纯爱保证"
-          desc="所有提交作品均经过管理员及社区联合审核，零雷区，让你放心食用高质量甜脆狗粮。"
+        <Pillar
+          icon={<ShieldCheck className="w-5 h-5" />}
+          kicker="Zero NTR"
+          title="零 NTR 底线"
+          desc="所有作品由站长与管理员双重审核。背德剧情、撕心裂肺的胃药——统统拒之门外，只留最纯粹的甜。"
         />
-        <FeatureCard 
-          icon={<Sparkles className="w-5 h-5 text-theme-accent" />}
-          title="JM 同步解析"
-          desc="只需输入JM号即可一键自动解析封面、标题与标签，告别繁琐的手动录入体验。"
+        <Pillar
+          icon={<Globe2 className="w-5 h-5" />}
+          kicker="10 Sources"
+          title="十源一站通"
+          desc="禁漫、哔咔、e-hentai、nhentai、拷贝漫画、NoyAcg、Komiic、包子、再漫画、绅士漫画，一键解析入库。"
         />
-        <FeatureCard 
-          icon={<Heart className="w-5 h-5 text-theme-accent" />}
-          title="高雅交流社区"
-          desc="在阅读后留下你的真实感受。我们崇尚文明、友善的评论氛围，在这里分享爱与感动。"
+        <Pillar
+          icon={<Quote className="w-5 h-5" />}
+          kicker="Honest Voice"
+          title="真诚交流社区"
+          desc="读完留下真实感受。我们拒绝引战与剧透，让每一份心动都被温柔对待。"
         />
       </section>
 
-      {/* Bottom Call to Action */}
+      {/* SOURCES GRID */}
+      <section>
+        <div className="text-center mb-10">
+          <div className="text-[11px] tracking-[0.2em] uppercase text-theme-accent font-medium mb-2">
+            Supported Sources
+          </div>
+          <h2 className="font-serif text-[28px] md:text-[32px] text-theme-ink font-light mb-3">
+            十大漫画源，一次解析
+          </h2>
+          <p className="text-theme-muted text-[13px] max-w-md mx-auto leading-relaxed">
+            选择源 → 登录（如需）→ 搜索名字 → 自动获取封面、作者、详情。结果缓存进 Supabase，下次直接取用。
+          </p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          {SOURCES.map(s => (
+            <div
+              key={s.key}
+              className="bg-white border border-[#eee] rounded-lg p-4 hover:border-theme-accent/40 hover:shadow-sm transition-all"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-theme-muted tracking-[0.18em] uppercase font-medium">
+                  {s.tag}
+                </span>
+                {s.needLogin && (
+                  <span className="text-[9px] text-theme-accent border border-theme-accent/30 rounded-full px-1.5 py-0.5 tracking-wider">
+                    LOGIN
+                  </span>
+                )}
+              </div>
+              <div className="font-serif text-[15px] text-theme-ink font-medium leading-tight">
+                {s.name}
+              </div>
+              <div className="text-[11px] text-theme-muted mt-1.5">
+                {s.needLogin ? '需要登录后解析' : '免登录即可解析'}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA */}
       <section className="bg-white rounded-[12px] p-10 md:p-16 text-center border border-[#eee] shadow-theme-card relative overflow-hidden">
-         <div className="relative z-10">
-           <h2 className="font-serif text-[28px] md:text-[32px] text-theme-ink mb-4 font-light">有发现令人心动的神作吗？</h2>
-           <p className="text-theme-muted text-[13px] mb-8 max-w-md mx-auto leading-relaxed">
-             为这片净土添砖加瓦。提交你珍藏的纯爱本子，让更多同好在漫库中感受这份美好。
-           </p>
-           <Link to="/submit" onClick={handleSubmitClick} className="inline-flex items-center gap-2 border border-theme-ink text-theme-ink px-8 py-3.5 rounded text-[13px] font-medium hover:bg-theme-ink hover:text-white transition-colors duration-300">
-             立刻提交解析 <ArrowRight className="w-4 h-4" />
-           </Link>
-         </div>
-         {/* Subtle background decoration */}
-         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-2xl opacity-[0.02] pointer-events-none">
-           <Heart className="w-full h-full" />
-         </div>
+        <div className="relative z-10">
+          <div className="text-[11px] tracking-[0.2em] uppercase text-theme-accent font-medium mb-3">
+            Join the Sanctuary
+          </div>
+          <h2 className="font-serif text-[28px] md:text-[36px] text-theme-ink mb-4 font-light leading-tight">
+            把你珍藏的那本，
+            <br className="md:hidden" />
+            也放进这片净土
+          </h2>
+          <p className="text-theme-muted text-[13px] mb-8 max-w-md mx-auto leading-relaxed">
+            不论是甜到掉牙的日常，还是令人屏息的初恋心境——欢迎投稿，让更多同好在漫库中与你共鸣。
+          </p>
+          <Link
+            to="/submit"
+            onClick={handleSubmitClick}
+            className="inline-flex items-center gap-2 border border-theme-ink text-theme-ink px-8 py-3.5 rounded text-[13px] font-medium hover:bg-theme-ink hover:text-white transition-colors"
+          >
+            立刻提交解析 <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-2xl opacity-[0.02] pointer-events-none">
+          <Heart className="w-full h-full" />
+        </div>
       </section>
     </div>
   );
 }
 
-function FeatureCard({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) {
+function Stat({
+  n,
+  label,
+  suffix,
+  decimals = 0,
+}: {
+  n: number;
+  label: string;
+  suffix?: string;
+  decimals?: number;
+}) {
+  return (
+    <div className="bg-theme-main p-6 md:p-8 text-center">
+      <div className="font-serif text-[32px] md:text-[40px] text-theme-ink font-light leading-none mb-2">
+        {n.toFixed(decimals)}
+        {suffix && <span className="text-theme-accent text-[20px] ml-1">{suffix}</span>}
+      </div>
+      <div className="text-[11px] text-theme-muted tracking-[0.18em] uppercase">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function Pillar({
+  icon,
+  kicker,
+  title,
+  desc,
+}: {
+  icon: React.ReactNode;
+  kicker: string;
+  title: string;
+  desc: string;
+}) {
   return (
     <div className="space-y-4">
-      <div className="w-12 h-12 rounded bg-theme-bg border border-[#eee] flex items-center justify-center">
+      <div className="w-12 h-12 rounded bg-theme-bg border border-[#eee] flex items-center justify-center text-theme-accent">
         {icon}
       </div>
-      <h3 className="font-serif text-[18px] text-theme-ink font-medium tracking-wide">{title}</h3>
-      <p className="text-[13px] text-theme-muted leading-relaxed">
-        {desc}
-      </p>
+      <div className="text-[10px] tracking-[0.2em] uppercase text-theme-muted font-medium">
+        {kicker}
+      </div>
+      <h3 className="font-serif text-[18px] text-theme-ink font-medium tracking-wide leading-tight">
+        {title}
+      </h3>
+      <p className="text-[13px] text-theme-muted leading-relaxed">{desc}</p>
     </div>
   );
 }
+
+const SOURCES: { key: string; name: string; tag: string; needLogin: boolean }[] = [
+  { key: 'jm', name: '禁漫 (JM)', tag: 'JM', needLogin: false },
+  { key: 'bika', name: '哔咔 (Bika)', tag: 'BIKA', needLogin: true },
+  { key: 'ehentai', name: 'e-hentai', tag: 'EH', needLogin: false },
+  { key: 'nhentai', name: 'nhentai', tag: 'NH', needLogin: false },
+  { key: 'copymanga', name: '拷贝漫画', tag: 'COPY', needLogin: false },
+  { key: 'noyacg', name: 'NoyAcg', tag: 'NOY', needLogin: true },
+  { key: 'komiic', name: 'Komiic', tag: 'KMC', needLogin: false },
+  { key: 'baozimh', name: '包子漫画', tag: 'BAO', needLogin: false },
+  { key: 'zaimanhua', name: '再漫画', tag: 'ZAI', needLogin: true },
+  { key: 'wnacg', name: '绅士漫画', tag: 'WN', needLogin: false },
+];
