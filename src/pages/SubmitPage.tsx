@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase, getSourceCredentials, saveSourceCredentials, getSourceCache, saveSourceCache } from '../lib/supabase';
+import { supabase, getSourceCredentials, saveSourceCredentials, deleteSourceCredentials, getSourceCache, saveSourceCache } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -36,6 +36,7 @@ export default function SubmitPage() {
   const [searched, setSearched] = useState(false);
 
   // login
+  const [loggedIn, setLoggedIn] = useState(false);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loggingIn, setLoggingIn] = useState(false);
@@ -70,13 +71,35 @@ export default function SubmitPage() {
       .catch(() => {});
   }, []);
 
-  const switchSource = (id: string) => {
+  const switchSource = async (id: string) => {
     setSource(id);
     setSearchQ('');
     setResults([]);
     setSearched(false);
     setNeedsLogin(false);
+    setLoggedIn(false);
+    setPreview(null);
     setError('');
+    const info = sources.find((s) => s.id === id);
+    if (info?.needsLogin) {
+      // 需登录的源：先检查是否已有保存的凭证，没有则先登录再搜索
+      const cred = await getSourceCredentials(id);
+      setLoggedIn(!!cred);
+    } else {
+      setLoggedIn(true);
+    }
+  };
+
+  const handleLogoutSource = async () => {
+    try {
+      await deleteSourceCredentials(source);
+    } catch {
+      /* ignore */
+    }
+    setLoggedIn(false);
+    setNeedsLogin(true);
+    setResults([]);
+    setSearched(false);
   };
 
   const withCredentials = async (): Promise<Record<string, string> | undefined> => {
@@ -128,6 +151,7 @@ export default function SubmitPage() {
       if (res.data.success) {
         await saveSourceCredentials(source, res.data.data || {});
         setNeedsLogin(false);
+        setLoggedIn(true);
         setLoginForm({ username: '', password: '' });
         if (pendingId) {
           const pid = pendingId;
@@ -285,10 +309,55 @@ export default function SubmitPage() {
             </div>
           </div>
 
-          {/* Search area (only after a source is selected) */}
+          {/* After source selected: login gate first, then search */}
           {source ? (
+            (sourceInfo?.needsLogin && !loggedIn) || needsLogin ? (
+              <div className="p-6 bg-theme-main rounded-[12px] border border-theme-accent/20">
+                <h3 className="font-semibold text-theme-ink mb-2 flex items-center text-[15px]">
+                  <KeyRound className="w-4 h-4 mr-2 text-theme-accent" />
+                  {sourceInfo?.name} 需要登录
+                </h3>
+                <p className="text-[12px] text-theme-muted mb-5">
+                  登录后才能搜索该源。凭证仅本人可见、保存在本站，解析结果会缓存，下次可直接使用。
+                </p>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={loginForm.username}
+                    onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                    placeholder="账号 / 用户名"
+                    className="w-full px-4 py-2.5 bg-white border border-[#eee] rounded-lg text-[13px] focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none"
+                  />
+                  <input
+                    type="password"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    placeholder="密码"
+                    className="w-full px-4 py-2.5 bg-white border border-[#eee] rounded-lg text-[13px] focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none"
+                  />
+                  <button
+                    onClick={handleLogin}
+                    disabled={loggingIn || !loginForm.username || !loginForm.password}
+                    className="w-full py-2.5 bg-theme-accent text-white rounded-lg text-[13px] font-medium hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center"
+                  >
+                    {loggingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : '登录并继续'}
+                  </button>
+                </div>
+              </div>
+            ) : (
             <>
           <div>
+            {sourceInfo?.needsLogin && (
+              <div className="flex items-center justify-between mb-3 text-[12px] text-theme-muted">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                  已登录 {sourceInfo.name}
+                </span>
+                <button onClick={handleLogoutSource} className="text-theme-accent hover:underline">
+                  更换账号
+                </button>
+              </div>
+            )}
             <div className="flex space-x-3">
               <div className="relative flex-1">
                 <SearchIcon className="absolute left-[13px] top-1/2 -translate-y-1/2 text-theme-muted w-4 h-4" />
@@ -335,40 +404,6 @@ export default function SubmitPage() {
             )}
             {error && <p className="text-red-500 text-[13px] mt-2">{error}</p>}
           </div>
-
-          {/* Login form for sources that require it */}
-          {needsLogin && sourceInfo?.needsLogin && (
-            <div className="p-5 bg-theme-main rounded-[12px] border border-theme-accent/20">
-              <h3 className="font-semibold text-theme-ink mb-3 flex items-center text-[14px]">
-                <KeyRound className="w-4 h-4 mr-2 text-theme-accent" />
-                {sourceInfo.name} 需要登录
-              </h3>
-              <p className="text-[12px] text-theme-muted mb-4">登录后凭证会安全保存，之后可直接搜索/解析（结果也会缓存到本站）。</p>
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  value={loginForm.username}
-                  onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                  placeholder="账号 / 用户名"
-                  className="w-full px-4 py-2.5 bg-white border border-[#eee] rounded-lg text-[13px] focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none"
-                />
-                <input
-                  type="password"
-                  value={loginForm.password}
-                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                  placeholder="密码"
-                  className="w-full px-4 py-2.5 bg-white border border-[#eee] rounded-lg text-[13px] focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none"
-                />
-                <button
-                  onClick={handleLogin}
-                  disabled={loggingIn || !loginForm.username || !loginForm.password}
-                  className="w-full py-2.5 bg-theme-accent text-white rounded-lg text-[13px] font-medium hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center"
-                >
-                  {loggingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : '登录并继续'}
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* Search results */}
           {searched && (
@@ -419,6 +454,7 @@ export default function SubmitPage() {
           )}
 
             </>
+            )
           ) : (
             <div className="py-10 text-center bg-theme-main rounded-[12px] border border-[#eee] border-dashed">
               <p className="text-[13px] text-theme-muted">请先在上方选择来源，再进行搜索</p>
