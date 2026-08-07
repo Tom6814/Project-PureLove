@@ -26,7 +26,7 @@ export default function SubmitPage() {
 
   // source management
   const [sources, setSources] = useState<SourceInfo[]>([]);
-  const [source, setSource] = useState('jm');
+  const [source, setSource] = useState('');
   const sourceInfo = sources.find((s) => s.id === source);
 
   // search
@@ -65,12 +65,7 @@ export default function SubmitPage() {
     axios
       .get('/api/sources')
       .then((res) => {
-        if (res.data.success) {
-          setSources(res.data.data);
-          if (!res.data.data.some((s: SourceInfo) => s.id === 'jm')) {
-            setSource(res.data.data[0]?.id || 'jm');
-          }
-        }
+        if (res.data.success) setSources(res.data.data);
       })
       .catch(() => {});
   }, []);
@@ -290,7 +285,9 @@ export default function SubmitPage() {
             </div>
           </div>
 
-          {/* Search area */}
+          {/* Search area (only after a source is selected) */}
+          {source ? (
+            <>
           <div>
             <div className="flex space-x-3">
               <div className="relative flex-1">
@@ -418,6 +415,13 @@ export default function SubmitPage() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+            </>
+          ) : (
+            <div className="py-10 text-center bg-theme-main rounded-[12px] border border-[#eee] border-dashed">
+              <p className="text-[13px] text-theme-muted">请先在上方选择来源，再进行搜索</p>
             </div>
           )}
 

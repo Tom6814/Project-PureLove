@@ -307,7 +307,7 @@ async function ehParseSearch(html: string): Promise<SourceSearchItem[]> {
   const raw: Array<{ id: string; title: string; cover: string }> = [];
   $('.itg tr').each((_i, tr) => {
     const $tr = $(tr);
-    const a = $tr.find('.glname a.glink').first();
+    const a = $tr.find('.glname a').first(); // href 在 a 上，标题在其内部 .glink
     const href = a.attr('href') || '';
     const m = href.match(/\/g\/(\d+)\/([a-zA-Z0-9-]+)\/?/);
     if (!m) return;
@@ -325,7 +325,7 @@ async function ehParseSearch(html: string): Promise<SourceSearchItem[]> {
     }
     if (cover.startsWith('//')) cover = `https:${cover}`;
     if (/data:|base64,|blank\.gif|spacer|\/img\/blank/i.test(cover)) cover = '';
-    raw.push({ id: `${m[1]}-${m[2]}`, title: a.text().trim(), cover });
+    raw.push({ id: `${m[1]}-${m[2]}`, title: a.find('.glink').text().trim() || a.text().trim(), cover });
   });
   return Promise.all(
     raw.map(async (r) => ({ id: r.id, title: r.title, coverUrl: await toBase64Cover(r.cover), authors: [] }))
