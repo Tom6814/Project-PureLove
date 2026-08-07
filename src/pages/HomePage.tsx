@@ -3,7 +3,7 @@ import { supabase, mapMangaRow, subscribeToTable } from '../lib/supabase';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Heart, Search } from 'lucide-react';
-import { cn, getValidImageUrl } from '../lib/utils';
+import { cn, getValidImageUrl, getSourceName } from '../lib/utils';
 import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 
 export default function HomePage() {
@@ -154,7 +154,7 @@ export default function HomePage() {
                     </div>
                     <div className="flex justify-between mt-[10px] text-[11px] text-theme-accent">
                       <span>★ {manga.averageRating ? manga.averageRating.toFixed(1) : '暂无评分'} ({manga.reviewCount || 0} 评分)</span>
-                      <span>JM{manga.jmId}</span>
+                      <span>{manga.source === 'jm' ? `JM${manga.jmId}` : getSourceName(manga.source)}</span>
                     </div>
                   </div>
                 </Link>

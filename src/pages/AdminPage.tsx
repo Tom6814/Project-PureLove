@@ -7,7 +7,7 @@ import { getValidImageUrl, cn } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
 
 export default function AdminPage() {
-  const { isAdmin, isReviewer } = useAuth();
+  const { isAdmin, isReviewer, isRoot } = useAuth();
   const { settings, updateSettings } = useSettings();
   const [activeTab, setActiveTab] = useState<'overview' | 'submissions' | 'reviewers' | 'catalog'>('overview');
   const [pending, setPending] = useState<any[]>([]);
@@ -137,13 +137,11 @@ export default function AdminPage() {
     }
   };
 
-  const handleToggleReviewer = async (userId: string, currentRole: string) => {
-    if (!isAdmin) return;
+  const handleSetRole = async (userId: string, role: 'admin' | 'reviewer' | 'user') => {
     try {
-      const newRole = currentRole === 'reviewer' ? 'user' : 'reviewer';
       const { error } = await supabase
         .from('profiles')
-        .update({ role: newRole })
+        .update({ role })
         .eq('id', userId);
       if (error) throw error;
     } catch (error) {
@@ -423,14 +421,52 @@ export default function AdminPage() {
                     </span>
                   </td>
                   <td className="p-4 text-right">
-                    {u.role !== 'admin' && (
-                      <button
-                        onClick={() => handleToggleReviewer(u.id, u.role)}
-                        className={`text-[12px] px-3 py-1.5 rounded transition-colors border ${u.role === 'reviewer' ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-blue-600 border-blue-200 hover:bg-blue-50'}`}
-                      >
-                        {u.role === 'reviewer' ? 'Revoke Reviewer' : 'Make Reviewer'}
-                      </button>
-                    )}
+                    <div className="flex flex-wrap gap-2 justify-end">
+                      {u.role === 'user' && (
+                        <>
+                          {isRoot && (
+                            <button
+                              onClick={() => handleSetRole(u.id, 'admin')}
+                              className="text-[12px] px-3 py-1.5 rounded transition-colors border text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                              Make Admin
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleSetRole(u.id, 'reviewer')}
+                            className="text-[12px] px-3 py-1.5 rounded transition-colors border text-blue-600 border-blue-200 hover:bg-blue-50"
+                          >
+                            Make Reviewer
+                          </button>
+                        </>
+                      )}
+                      {u.role === 'reviewer' && (
+                        <>
+                          {isRoot && (
+                            <button
+                              onClick={() => handleSetRole(u.id, 'admin')}
+                              className="text-[12px] px-3 py-1.5 rounded transition-colors border text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                              Make Admin
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleSetRole(u.id, 'user')}
+                            className="text-[12px] px-3 py-1.5 rounded transition-colors border text-red-600 border-red-200 hover:bg-red-50"
+                          >
+                            Revoke Reviewer
+                          </button>
+                        </>
+                      )}
+                      {u.role === 'admin' && isRoot && (
+                        <button
+                          onClick={() => handleSetRole(u.id, 'user')}
+                          className="text-[12px] px-3 py-1.5 rounded transition-colors border text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          Revoke Admin
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

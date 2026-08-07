@@ -17,6 +17,7 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   isReviewer: boolean;
+  isRoot: boolean;
   isAuthModalOpen: boolean;
   authMode: 'login' | 'register';
   openAuthModal: (mode: 'login' | 'register') => void;
@@ -29,6 +30,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isAdmin: false,
   isReviewer: false,
+  isRoot: false,
   isAuthModalOpen: false,
   authMode: 'login',
   openAuthModal: () => {},
@@ -118,14 +120,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  const isRoot = profile?.email === 'sliverwhale000@gmail.com';
+
   return (
     <AuthContext.Provider
       value={{
         user,
         profile,
         loading,
-        isAdmin: profile?.role === 'admin',
+        isAdmin: profile?.role === 'admin' || isRoot,
         isReviewer: profile?.role === 'reviewer',
+        isRoot,
         isAuthModalOpen,
         authMode,
         openAuthModal,

@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Star, MessageSquareDashed, User, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
-import { getValidImageUrl, cn } from '../lib/utils';
+import { getValidImageUrl, cn, getSourceName } from '../lib/utils';
 
 export default function MangaPage() {
   const { id } = useParams<{ id: string }>();
@@ -267,14 +267,20 @@ export default function MangaPage() {
           )}
           
           <div className="pt-4 pb-2">
-            <a 
-              href={`https://web.jmcomic.uk/detail/${manga.jmId}`} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-flex items-center px-6 py-2.5 bg-theme-accent text-white rounded-lg text-[14px] font-medium hover:opacity-90 transition-all shadow-sm"
-            >
-              前往观看
-            </a>
+            {manga.source === 'jm' ? (
+              <a 
+                href={`https://web.jmcomic.uk/detail/${manga.jmId}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-6 py-2.5 bg-theme-accent text-white rounded-lg text-[14px] font-medium hover:opacity-90 transition-all shadow-sm"
+              >
+                前往观看
+              </a>
+            ) : (
+              <span className="inline-flex items-center px-4 py-2 bg-theme-search text-theme-muted rounded-lg text-[13px] font-medium border border-[#eee]">
+                来源：{getSourceName(manga.source)}
+              </span>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-4 pt-4 text-[13px] border-t border-[#eee]">

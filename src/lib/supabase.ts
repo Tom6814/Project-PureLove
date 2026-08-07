@@ -48,6 +48,7 @@ export interface UserProfile {
 
 export interface Manga {
   id: string;
+  source: string;
   jmId: string;
   title: string;
   description: string;
@@ -159,6 +160,7 @@ export function mapProfileRow(row: Record<string, any>): UserProfile {
 export function mapMangaRow(row: Record<string, any>): Manga {
   return {
     id: row.id,
+    source: row.source ?? 'jm',
     jmId: row.jm_id,
     title: row.title,
     description: row.description ?? '',
@@ -212,4 +214,50 @@ export function isUniqueViolation(error: unknown): boolean {
     (error as { code?: string })?.code === '23505' ||
     (error instanceof Error && /duplicate key value violates unique constraint/i.test(error.message))
   );
+}
+
+// ============================================================
+// Source credentials & cache (multi-source submit flow)
+// ============================================================
+export async function getSourceCredentials(source: string): Promise<Record<string, string> | null> {
+  const { data, error } = await supabase
+    .from('source_credentials')
+    .select('payload')
+    .eq('source', source)
+    .maybeSingle();
+  if (error || !data) return null;
+  return (data.payload as Record<string, string>) ?? null;
+}
+
+export async function saveSourceCredentials(source: string, payload: Record<string, string>) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('未登录');
+  const { error } = await supabase
+    .from('source_credentials')
+    .upsert({ user_id: user.id, source, payload }, { onConflict: 'user_id,source' });
+  if (error) throw error;
+}
+
+export async function deleteSourceCredentials(source: string) {
+  const { error } = await supabase.from('source_credentials').delete().eq('source', source);
+  if (error) throw error;
+}
+
+export async function getSourceCache<T>(cacheKey: string): Promise<T | null> {
+  const { data, error } = await supabase
+    .from('source_cache')
+    .select('payload')
+    .eq('cache_key', cacheKey)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.payload as T;
+}
+
+export async function saveSourceCache<T>(cacheKey: string, payload: T) {
+  const { error } = await supabase
+    .from('source_cache')
+    .upsert({ cache_key: cacheKey, payload }, { onConflict: 'cache_key' });
+  if (error) console.error('source_cache save failed:', error.message);
 }
