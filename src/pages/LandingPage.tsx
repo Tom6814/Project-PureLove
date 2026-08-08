@@ -13,6 +13,8 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, mapMangaRow, type Manga } from '../lib/supabase';
 import { getSourceName, getValidImageUrl } from '../lib/utils';
+import heroLeft from '../assets/hero-left.png';
+import heroRight from '../assets/hero-right.png';
 
 export default function LandingPage() {
   const { user, openAuthModal } = useAuth();
@@ -62,8 +64,24 @@ export default function LandingPage() {
 
       {/* HERO */}
       <section className="relative pt-10 lg:pt-16 z-10">
-        <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-          <div className="lg:col-span-7 space-y-7">
+        <div className="grid lg:grid-cols-12 gap-10 lg:gap-4 items-center max-w-[1400px] mx-auto">
+          {/* Left Mascot — JM娘 (transparent PNG) */}
+          <motion.div
+            initial={{ opacity: 0, x: -50, rotate: -4 }}
+            animate={{ opacity: 1, x: 0, rotate: -4 }}
+            transition={{ duration: 0.9, delay: 0.15, type: 'spring' }}
+            className="hidden lg:flex lg:col-span-3 justify-center items-end"
+          >
+            <img
+              src={heroLeft}
+              alt="JM娘"
+              className="w-[200px] xl:w-[230px] h-auto object-contain drop-shadow-[0_20px_35px_rgba(212,80,150,0.28)] select-none"
+              draggable={false}
+            />
+          </motion.div>
+
+          {/* Center Copy */}
+          <div className="lg:col-span-6 space-y-7 text-center px-2">
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -78,7 +96,7 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.05 }}
-              className="font-serif text-[44px] md:text-[60px] lg:text-[80px] leading-[1.05] text-theme-ink tracking-[-0.02em]"
+              className="font-serif text-[44px] md:text-[60px] lg:text-[72px] xl:text-[80px] leading-[1.08] text-theme-ink tracking-[-0.02em]"
             >
               拒绝牛头人，
               <br />
@@ -91,18 +109,18 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.15 }}
-              className="text-theme-muted text-[15px] md:text-[16px] leading-[1.85] max-w-lg font-light"
+              className="text-theme-muted text-[15px] md:text-[16px] leading-[1.9] max-w-xl mx-auto font-light"
             >
               Project RN 收录 10 大漫画源头的纯爱本子，由站长与社区双重审核，
               <br className="hidden md:block" />
-              把最甜、最真、最干净的恋爱故事留给你。
+              把最甜、最真、最干净的恋爱故事，留给你。
             </motion.p>
 
             <motion.div
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.25 }}
-              className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1"
+              className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1"
             >
               <Link
                 to="/explore"
@@ -120,47 +138,40 @@ export default function LandingPage() {
             </motion.div>
           </div>
 
-          {/* Hero Imagery — editorial collaged covers */}
-          <div className="lg:col-span-5 hidden lg:block">
-            <div className="relative w-full h-[560px] max-w-[480px] mx-auto">
-              <motion.img
-                initial={{ opacity: 0, x: 30, rotate: -6 }}
-                animate={{ opacity: 1, x: 0, rotate: -6 }}
-                transition={{ duration: 0.8, delay: 0.2, type: 'spring' }}
-                src="https://images.unsplash.com/photo-1544640808-32cb4ceaa014?auto=format&fit=crop&q=80&w=600"
-                alt="Comic cover"
-                className="absolute left-[0%] top-[12%] w-[55%] aspect-[2/3] object-cover rounded shadow-theme-card border-[8px] border-white"
-                referrerPolicy="no-referrer"
-              />
-              <motion.img
-                initial={{ opacity: 0, x: -30, rotate: 6 }}
-                animate={{ opacity: 1, x: 0, rotate: 6 }}
-                transition={{ duration: 0.8, delay: 0.35, type: 'spring' }}
-                src="https://images.unsplash.com/photo-1560930950-5cc20e80e392?auto=format&fit=crop&q=80&w=600"
-                alt="Comic cover"
-                className="absolute right-[0%] top-[5%] w-[55%] aspect-[2/3] object-cover rounded shadow-2xl border-[8px] border-white z-10"
-                referrerPolicy="no-referrer"
+          {/* Right Mascot — bika娘 (transparent PNG) */}
+          <motion.div
+            initial={{ opacity: 0, x: 50, rotate: 4 }}
+            animate={{ opacity: 1, x: 0, rotate: 4 }}
+            transition={{ duration: 0.9, delay: 0.3, type: 'spring' }}
+            className="hidden lg:flex lg:col-span-3 justify-center items-end"
+          >
+            <div className="relative flex items-end">
+              <img
+                src={heroRight}
+                alt="bika娘"
+                className="w-[200px] xl:w-[230px] h-auto object-contain drop-shadow-[0_20px_35px_rgba(212,80,150,0.28)] select-none"
+                draggable={false}
               />
               <motion.div
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.6 }}
-                className="absolute bottom-[6%] left-[12%] bg-white/95 backdrop-blur px-4 py-3 rounded-lg shadow-xl border border-[#eee] z-20 flex items-center gap-3"
+                className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur px-4 py-2.5 rounded-lg shadow-xl border border-[#eee] flex items-center gap-2.5 whitespace-nowrap"
               >
-                <div className="w-9 h-9 bg-theme-accent/10 rounded-full flex items-center justify-center text-theme-accent">
+                <div className="w-8 h-8 bg-theme-accent/10 rounded-full flex items-center justify-center text-theme-accent">
                   <Star className="w-4 h-4 fill-current" />
                 </div>
-                <div>
-                  <div className="text-theme-ink font-serif text-[14px] font-medium leading-tight">
+                <div className="text-left">
+                  <div className="text-theme-ink font-serif text-[13px] font-medium leading-tight">
                     社区同好甄选
                   </div>
-                  <div className="text-theme-muted text-[10px] tracking-widest uppercase">
+                  <div className="text-theme-muted text-[9px] tracking-widest uppercase">
                     Curated · Approved
                   </div>
                 </div>
               </motion.div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
