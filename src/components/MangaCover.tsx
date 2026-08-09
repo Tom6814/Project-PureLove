@@ -30,8 +30,9 @@ export default function MangaCover({
   blurClassName = 'blur-md scale-105',
   badgeText = 'R18',
 }: MangaCoverProps) {
-  const { settings } = useSettings();
-  const shouldBlur = settings.enableR18Blur && isR18;
+  const { settings, loading } = useSettings();
+  // 设置加载完成前默认模糊（保守策略），防止异步拉取导致"先清晰后模糊"暴露内容
+  const shouldBlur = isR18 && (loading || settings.enableR18Blur);
 
   return (
     <div className={cn('relative overflow-hidden bg-[#e5e5e5]', className)}>
