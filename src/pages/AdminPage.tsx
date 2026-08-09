@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase, mapMangaRow, mapProfileRow, subscribeToTable } from '../lib/supabase';
 import { Check, X, Loader2, BookOpen, Trash2, LayoutDashboard, Users, BookHeart, AlertCircle } from 'lucide-react';
 import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../hooks/useSettings';
 import MangaCover from '../components/MangaCover';
+import { findDuplicates, type DuplicateMatch } from '../lib/duplicates';
 
 export default function AdminPage() {
   const { isAdmin, isReviewer, isRoot } = useAuth();
@@ -21,6 +23,22 @@ export default function AdminPage() {
     totalApproved: 0,
     totalPending: 0
   });
+
+  // 查重：每条待审核本子 vs 已审核库（approved），找出可能撞车的本子
+  const duplicateMap = useMemo(() => {
+    const map: Record<string, DuplicateMatch[]> = {};
+    for (const p of pending) {
+      map[p.id] = findDuplicates(p, catalog);
+    }
+    return map;
+  }, [pending, catalog]);
+
+  // 撞车级别对应颜色
+  const levelStyles: Record<DuplicateMatch['level'], string> = {
+    high: 'bg-red-50 border-red-200 text-red-700',
+    medium: 'bg-amber-50 border-amber-200 text-amber-700',
+    low: 'bg-yellow-50 border-yellow-200 text-yellow-700',
+  };
 
   useEffect(() => {
     let active = true;
@@ -81,33 +99,32 @@ export default function AdminPage() {
   }, [activeTab, isAdmin]);
 
   useEffect(() => {
-    if (activeTab === 'catalog' || activeTab === 'overview') {
-      if(activeTab === 'catalog') setLoading(true);
-      let active = true;
-      const fetchCatalog = async () => {
-        const { data, error } = await supabase
-          .from('mangas')
-          .select('*')
-          .eq('status', 'approved');
-        if (error) {
-          handleSupabaseError(error, OperationType.LIST, 'mangas');
-          if(activeTab === 'catalog') setLoading(false);
-          return;
-        }
-        if (active) {
-          setCatalog((data ?? []).map(mapMangaRow));
-          setStats(s => ({...s, totalApproved: data?.length ?? 0}));
-          if(activeTab === 'catalog') setLoading(false);
-        }
-      };
-      fetchCatalog();
-      const unsubscribe = subscribeToTable('mangas', fetchCatalog);
-      return () => {
-        active = false;
-        unsubscribe();
-      };
-    }
-  }, [activeTab]);
+    let active = true;
+    // 常驻加载已审核库（供查重比对 + catalog/overview 统计）
+    const fetchCatalog = async () => {
+      if (activeTab === 'catalog') setLoading(true);
+      const { data, error } = await supabase
+        .from('mangas')
+        .select('*')
+        .eq('status', 'approved');
+      if (error) {
+        handleSupabaseError(error, OperationType.LIST, 'mangas');
+        if (activeTab === 'catalog') setLoading(false);
+        return;
+      }
+      if (active) {
+        setCatalog((data ?? []).map(mapMangaRow));
+        setStats(s => ({...s, totalApproved: data?.length ?? 0}));
+        if (activeTab === 'catalog') setLoading(false);
+      }
+    };
+    fetchCatalog();
+    const unsubscribe = subscribeToTable('mangas', fetchCatalog);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     setStats(s => ({...s, totalPending: pending.length}));
@@ -283,7 +300,36 @@ export default function AdminPage() {
                     </label>
                   </div>
                   <p className="text-[12px] text-theme-muted line-clamp-2">{manga.description}</p>
-                  
+
+                  {/* 撞车提示：与库内已有本子可能重复 */}
+                  {(duplicateMap[manga.id] ?? []).length > 0 && (
+                    <div className="mt-3 rounded-lg border border-red-200 bg-red-50/60 p-3">
+                      <div className="flex items-center gap-1.5 text-[12px] font-semibold text-red-700 mb-2">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        可能与以下本子撞车
+                      </div>
+                      <ul className="space-y-1.5">
+                        {duplicateMap[manga.id].map((d) => (
+                          <li key={d.manga.id} className="flex items-center gap-2 text-[12px]">
+                            <Link
+                              to={`/manga/${d.manga.id}`}
+                              className="font-medium text-theme-ink hover:text-theme-accent hover:underline truncate"
+                              title={d.manga.title}
+                            >
+                              {d.manga.title}
+                            </Link>
+                            <span className="text-[11px] text-theme-muted shrink-0">
+                              {d.manga.jmId ? `JM${d.manga.jmId}` : ''}
+                            </span>
+                            <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium border ${levelStyles[d.level]}`}>
+                              {d.reason}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   <div className="text-[11px] text-[#aaa] mt-2">
                     推荐者: {manga.submittedByName || manga.submittedBy || 'Unknown'}
                   </div>
