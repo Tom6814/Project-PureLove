@@ -9,6 +9,8 @@ import {
   Star,
   Globe2,
   Quote,
+  Ban,
+  Rainbow,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, mapMangaRow, type Manga } from '../lib/supabase';
@@ -253,6 +255,80 @@ export default function LandingPage() {
           title="真诚交流社区"
           desc="读完留下真实感受。我们拒绝引战与剧透，让每一份心动都被温柔对待。"
         />
+      </section>
+
+      {/* CONTENT POLICY */}
+      <section>
+        <div className="text-center mb-10">
+          <div className="text-[11px] tracking-[0.2em] uppercase text-theme-accent font-medium mb-2">
+            Content Policy
+          </div>
+          <h2 className="font-serif text-[28px] md:text-[32px] text-theme-ink font-light mb-3">
+            内容红线与态度
+          </h2>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Banned */}
+          <div className="bg-white border border-red-200 rounded-2xl p-7 shadow-sm">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-9 h-9 bg-red-500/10 rounded-full flex items-center justify-center text-red-500">
+                <Ban className="w-4.5 h-4.5" />
+              </div>
+              <h3 className="font-serif text-[18px] font-medium text-theme-ink">
+                坚决抵制
+              </h3>
+            </div>
+            <ul className="space-y-2.5">
+              {[
+                '任何形式的 NTR（牛头人）',
+                '猎奇、触手、强奸',
+                '已婚外遇、卖淫、凌辱',
+                '父女 / 母子及以上辈分的乱伦',
+                '大叔题材',
+                '金钱 / 权色交易',
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2.5 text-[13px] text-theme-muted leading-relaxed">
+                  <span className="mt-[7px] w-1 h-1 rounded-full bg-red-400 flex-shrink-0" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-5 pt-4 border-t border-[#f2f2f2] text-[12px] text-theme-muted leading-relaxed">
+              以上题材一律禁止提交与收录，由站长与管理员双重把关，零容忍。
+            </p>
+          </div>
+
+          {/* Inclusive */}
+          <div className="bg-white border border-[#eee] rounded-2xl p-7 shadow-sm">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-9 h-9 bg-theme-accent/10 rounded-full flex items-center justify-center text-theme-accent">
+                <Rainbow className="w-4.5 h-4.5" />
+              </div>
+              <h3 className="font-serif text-[18px] font-medium text-theme-ink">
+                尊重与包容
+              </h3>
+            </div>
+            <ul className="space-y-2.5">
+              {[
+                '同性恋（BL / GL）',
+                'LGBTQ+ 多元群体',
+                '福瑞（Furry）题材',
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2.5 text-[13px] text-theme-muted leading-relaxed">
+                  <span className="mt-[7px] w-1 h-1 rounded-full bg-theme-accent flex-shrink-0" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-5 pt-4 border-t border-[#f2f2f2] text-[12px] text-theme-muted leading-relaxed">
+              我们充分理解并尊重相关群体，相关站点正在建设中，敬请期待。
+              <span className="block mt-1 text-[11px] text-theme-muted/80">
+                目前本站内容以 Straight（异性恋）题材为主。
+              </span>
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* SOURCES GRID */}
