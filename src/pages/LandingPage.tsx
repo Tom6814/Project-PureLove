@@ -16,10 +16,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase, mapMangaRow, type Manga } from '../lib/supabase';
 import { getSourceName } from '../lib/utils';
 import MangaCover from '../components/MangaCover';
-import heroLeftAvif from '../assets/hero-left.avif';
-import heroLeftWebp from '../assets/hero-left.webp';
-import heroRightAvif from '../assets/hero-right.avif';
-import heroRightWebp from '../assets/hero-right.webp';
+import heroLeft from '../assets/hero-left.webp';
+import heroRight from '../assets/hero-right.webp';
 
 export default function LandingPage() {
   const { user, openAuthModal } = useAuth();
@@ -77,17 +75,14 @@ export default function LandingPage() {
             transition={{ duration: 0.9, delay: 0.15, type: 'spring' }}
             className="hidden lg:flex lg:col-span-3 justify-center items-end h-full py-4"
           >
-            <picture>
-              <source srcSet={heroLeftAvif} type="image/avif" />
-              <img
-                src={heroLeftWebp}
-                alt="JM娘"
-                fetchPriority="high"
-                decoding="async"
-                className="w-[280px] xl:w-[330px] h-auto object-contain drop-shadow-[0_28px_45px_rgba(212,80,150,0.32)] select-none"
-                draggable={false}
-              />
-            </picture>
+            <img
+              src={heroLeft}
+              alt="JM娘"
+              fetchPriority="high"
+              decoding="async"
+              className="w-[280px] xl:w-[330px] h-auto object-contain drop-shadow-[0_28px_45px_rgba(212,80,150,0.32)] select-none"
+              draggable={false}
+            />
           </motion.div>
 
           {/* Center Copy */}
@@ -156,15 +151,12 @@ export default function LandingPage() {
             className="hidden lg:flex lg:col-span-3 justify-center items-end py-6"
           >
             <div className="relative flex items-end">
-              <picture>
-                <source srcSet={heroRightAvif} type="image/avif" />
-                <img
-                  src={heroRightWebp}
-                  alt="bika娘"
-                  className="w-[240px] xl:w-[270px] h-auto object-contain drop-shadow-[0_24px_40px_rgba(212,80,150,0.30)] select-none"
-                  draggable={false}
-                />
-              </picture>
+              <img
+                src={heroRight}
+                alt="bika娘"
+                className="w-[240px] xl:w-[270px] h-auto object-contain drop-shadow-[0_24px_40px_rgba(212,80,150,0.30)] select-none"
+                draggable={false}
+              />
               <motion.div
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
