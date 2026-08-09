@@ -285,7 +285,11 @@ export default function SubmitPage() {
         authors: formData.authors.split(',').map((s) => s.trim()).filter(Boolean),
         tags: formData.tags.split(',').map((s) => s.trim()).filter(Boolean),
       },
-      settings.sensitiveWords
+      {
+        general: settings.sensitiveWords,
+        review: settings.sensitiveWordsReview,
+        authors: settings.sensitiveWordsAuthors,
+      }
     );
     if (hits.length > 0) {
       setSensitiveHits(hits);

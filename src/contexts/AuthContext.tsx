@@ -114,9 +114,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (active) setLoading(false);
     });
 
+    // 移动端浏览器切后台/息屏后，回到前台时页面可能被冻结甚至整页重载。
+    // 恢复可见时主动刷新 session，避免因 token 过期触发登出而被重定向回首页。
+    const refreshOnVisible = async () => {
+      if (document.visibilityState !== 'visible') return;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session) {
+        // 静默刷新；失败（过期）时 onAuthStateChange 会自行处理 SIGNED_OUT
+        await supabase.auth.refreshSession().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', refreshOnVisible);
+
     return () => {
       active = false;
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', refreshOnVisible);
     };
   }, []);
 

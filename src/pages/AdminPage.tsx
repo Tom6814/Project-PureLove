@@ -41,14 +41,46 @@ export default function AdminPage() {
     for (const p of pending) {
       map[p.id] = detectSubmissionSensitive(
         { title: p.title, description: p.description, review: p.review, authors: p.authors, tags: p.tags },
-        settings.sensitiveWords
+        {
+          general: settings.sensitiveWords,
+          review: settings.sensitiveWordsReview,
+          authors: settings.sensitiveWordsAuthors,
+        }
       );
     }
     return map;
-  }, [pending, settings.sensitiveWords]);
+  }, [pending, settings.sensitiveWords, settings.sensitiveWordsReview, settings.sensitiveWordsAuthors]);
 
-  // 敏感词管理：新增词输入
+  // 敏感词管理：三个分类（通用/推荐语/作者）各自的输入
   const [newWord, setNewWord] = useState('');
+  const [newWordCategory, setNewWordCategory] = useState<'general' | 'review' | 'authors'>('general');
+
+  const wordLists: Record<'general' | 'review' | 'authors', string[]> = {
+    general: settings.sensitiveWords,
+    review: settings.sensitiveWordsReview,
+    authors: settings.sensitiveWordsAuthors,
+  };
+
+  const addSensitiveWord = (category: 'general' | 'review' | 'authors' = newWordCategory) => {
+    const word = newWord.trim();
+    if (!word) return;
+    const list = wordLists[category];
+    if (list.includes(word)) {
+      setNewWord('');
+      return;
+    }
+    if (category === 'general') updateSettings({ sensitiveWords: [...list, word] });
+    else if (category === 'review') updateSettings({ sensitiveWordsReview: [...list, word] });
+    else updateSettings({ sensitiveWordsAuthors: [...list, word] });
+    setNewWord('');
+  };
+
+  const removeSensitiveWord = (category: 'general' | 'review' | 'authors', word: string) => {
+    const list = wordLists[category].filter((w) => w !== word);
+    if (category === 'general') updateSettings({ sensitiveWords: list });
+    else if (category === 'review') updateSettings({ sensitiveWordsReview: list });
+    else updateSettings({ sensitiveWordsAuthors: list });
+  };
 
   // R18 模糊示例：取库内第一本有封面的已审核本子作为示例图
   const sampleCover = catalog.find((m) => m.coverUrl)?.coverUrl ?? '';
@@ -190,21 +222,6 @@ export default function AdminPage() {
     } catch (error) {
       handleSupabaseError(error, OperationType.UPDATE, `users/${userId}`);
     }
-  };
-
-  const addSensitiveWord = () => {
-    const word = newWord.trim();
-    if (!word) return;
-    if (settings.sensitiveWords.includes(word)) {
-      setNewWord('');
-      return;
-    }
-    updateSettings({ sensitiveWords: [...settings.sensitiveWords, word] });
-    setNewWord('');
-  };
-
-  const removeSensitiveWord = (word: string) => {
-    updateSettings({ sensitiveWords: settings.sensitiveWords.filter((w) => w !== word) });
   };
 
   if (loading) return <div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-theme-accent" /></div>;
@@ -361,47 +378,62 @@ export default function AdminPage() {
                </div>
              </div>
 
-             {/* 敏感词管理 */}
-             <div className="max-w-md mx-auto bg-white p-4 rounded-lg border border-[#eee] text-left">
-               <h4 className="text-[14px] font-medium text-theme-ink mb-1">敏感词过滤</h4>
-               <p className="text-[12px] text-theme-muted mb-3">
-                 用户提交的本子信息（标题/简介/推荐语/作者/标签）命中敏感词时，需二次确认才能提交；管理员审核界面会显示警告。
-               </p>
-               <div className="flex gap-2 mb-3">
-                 <input
-                   type="text"
-                   value={newWord}
-                   onChange={(e) => setNewWord(e.target.value)}
-                   onKeyDown={(e) => { if (e.key === 'Enter') addSensitiveWord(); }}
-                   placeholder="输入敏感词，回车或点击添加"
-                   className="flex-1 px-3 py-1.5 bg-theme-search border border-[#eee] rounded-lg text-[12px] text-theme-ink focus:outline-none focus:border-theme-accent focus:ring-1 focus:ring-theme-accent"
-                 />
-                 <button
-                   onClick={addSensitiveWord}
-                   className="shrink-0 px-3 py-1.5 bg-theme-ink text-white rounded-lg text-[12px] font-medium hover:bg-black transition-colors flex items-center gap-1"
-                 >
-                   <Plus className="w-3.5 h-3.5" /> 添加
-                 </button>
-               </div>
-               {settings.sensitiveWords.length === 0 ? (
-                 <p className="text-[12px] text-theme-muted">尚未设置敏感词。</p>
-               ) : (
-                 <div className="flex flex-wrap gap-2">
-                   {settings.sensitiveWords.map((w) => (
-                     <span key={w} className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 px-2 py-1 rounded-full text-[12px]">
-                       {w}
-                       <button
-                         onClick={() => removeSensitiveWord(w)}
-                         className="hover:text-red-500 transition-colors"
-                         title={`移除 ${w}`}
-                       >
-                         <Minus className="w-3 h-3" />
-                       </button>
-                     </span>
-                   ))}
-                 </div>
-               )}
-             </div>
+             {/* 敏感词管理（分类：通用/推荐语/作者） */}
+              <div className="max-w-md mx-auto bg-white p-4 rounded-lg border border-[#eee] text-left">
+                <h4 className="text-[14px] font-medium text-theme-ink mb-1">敏感词过滤</h4>
+                <p className="text-[12px] text-theme-muted mb-3">
+                  用户提交的本子信息命中敏感词时，需二次确认才能提交；管理员审核界面会显示警告。不同分类的敏感词分别检测对应字段。
+                </p>
+
+                {(
+                  [
+                    { key: 'general', label: '通用（标题/简介/标签）', desc: '' },
+                    { key: 'review', label: '推荐语专用', desc: '仅检测"阅读感想 / 推荐语"字段' },
+                    { key: 'authors', label: '作者专用', desc: '仅检测"作者"字段' },
+                  ] as const
+                ).map((cat) => (
+                  <div key={cat.key} className="mb-4 last:mb-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[12px] font-semibold text-theme-ink">{cat.label}</span>
+                      {cat.desc && <span className="text-[10px] text-theme-muted">{cat.desc}</span>}
+                    </div>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={newWordCategory === cat.key ? newWord : ''}
+                        onChange={(e) => { setNewWordCategory(cat.key); setNewWord(e.target.value); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') addSensitiveWord(cat.key); }}
+                        placeholder="输入敏感词，回车或点击添加"
+                        className="flex-1 px-3 py-1.5 bg-theme-search border border-[#eee] rounded-lg text-[12px] text-theme-ink focus:outline-none focus:border-theme-accent focus:ring-1 focus:ring-theme-accent"
+                      />
+                      <button
+                        onClick={() => addSensitiveWord(cat.key)}
+                        className="shrink-0 px-3 py-1.5 bg-theme-ink text-white rounded-lg text-[12px] font-medium hover:bg-black transition-colors flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> 添加
+                      </button>
+                    </div>
+                    {wordLists[cat.key].length === 0 ? (
+                      <p className="text-[12px] text-theme-muted">未设置。</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {wordLists[cat.key].map((w) => (
+                          <span key={w} className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 px-2 py-1 rounded-full text-[12px]">
+                            {w}
+                            <button
+                              onClick={() => removeSensitiveWord(cat.key, w)}
+                              className="hover:text-red-500 transition-colors"
+                              title={`移除 ${w}`}
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
           </div>
         </div>
       )}

@@ -21,9 +21,12 @@ const isHeroImage = (img: HTMLImageElement) => img.getAttribute('loading') !== '
 
 // 等待首页图片元素出现并全部下载完成。
 // LandingPage 是懒加载 chunk，渲染可能晚于 main.tsx，因此先轮询等待元素出现。
+// 仅首页（/）等待看板娘图片；其他路由（如 /explore）没有 hero 图，直接放行，
+// 避免整页重载到非首页时进度屏卡满超时。
 const waitForHeroImages = (): Promise<void> =>
   new Promise((resolve) => {
-    const deadline = Date.now() + 8000;
+    if (window.location.pathname !== '/') return resolve();
+    const deadline = Date.now() + 5000;
     let settled = false;
     const settle = () => {
       if (settled) return;
@@ -58,8 +61,8 @@ const waitForHeroImages = (): Promise<void> =>
 
 requestAnimationFrame(() => {
   requestAnimationFrame(() => {
-    // 兜底：最多等 8s，防止源图异常导致进度屏永久停留
-    const timeout = new Promise<void>((r) => setTimeout(r, 8000));
+    // 兜底：最多等 5s，防止源图异常导致进度屏永久停留
+    const timeout = new Promise<void>((r) => setTimeout(r, 5000));
     Promise.race([waitForHeroImages(), timeout]).then(() => {
       // 给浏览器一帧时间完成首屏绘制，再淡出进度屏
       requestAnimationFrame(() => requestAnimationFrame(finishLoader));
