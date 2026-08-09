@@ -60,7 +60,7 @@ export default function HomePage() {
       {/* Title & Search Section */}
       <section className="flex flex-col md:flex-row gap-6 md:items-end justify-between border-b border-[#eee] pb-6">
         <div>
-          <h2 className="font-serif text-[32px] font-light text-theme-ink tracking-tight leading-none mb-2">本周纯爱推荐</h2>
+          <h2 className="font-serif text-[32px] font-light text-theme-ink tracking-tight leading-none mb-2">本周优质推荐</h2>
           <p className="text-[13px] text-theme-muted">精选高画质、剧情唯美的诚意之作</p>
         </div>
         

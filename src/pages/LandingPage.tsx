@@ -112,9 +112,9 @@ export default function LandingPage() {
               transition={{ duration: 0.6, delay: 0.15 }}
               className="text-theme-muted text-[15px] md:text-[16px] leading-[1.9] max-w-xl mx-auto font-light"
             >
-              Project RN 收录 10 大漫画源头的纯爱本子，由站长与社区双重审核，
+              Project RN 收录 10 大漫画源头的优质本子，由站长与社区双重审核，
               <br className="hidden md:block" />
-              把最甜、最真、最干净的恋爱故事，留给你。
+              把最甜、最真、最干净的恋爱故事留给你——纯爱，始终有位置。
             </motion.p>
 
             <motion.div
@@ -178,7 +178,7 @@ export default function LandingPage() {
 
       {/* STAT STRIP */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[#eee] border-y border-[#eee] -mx-4 sm:-mx-8 lg:-mx-10">
-        <Stat n={stats.approved} label="已收录纯爱本" suffix="部" />
+        <Stat n={stats.approved} label="已收录优质本" suffix="部" />
         <Stat n={10} label="支持漫画源" suffix="+" />
         <Stat n={stats.contributors} label="活跃投稿人" />
         <Stat n={4.8} label="平均甜度" suffix="★" decimals={1} />
