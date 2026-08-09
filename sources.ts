@@ -85,20 +85,6 @@ const toArr = (v: any): string[] => {
   return [];
 };
 
-/** 并发受限的 async map：避免大量并发请求打满源站/超时。 */
-async function mapWithConcurrency<T, R>(items: T[], concurrency: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let next = 0;
-  const worker = async () => {
-    while (next < items.length) {
-      const i = next++;
-      results[i] = await fn(items[i], i);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
-  return results;
-}
-
 // ------------------------------------------------------------
 // jm (禁漫) — mobile API + AES decryption
 // ------------------------------------------------------------
@@ -158,34 +144,39 @@ type JmResp = { data: any; setCookie?: string; domain?: string };
 async function jmRequest(pathWithQuery: string, opts: { method?: string; body?: string; cookie?: string; domain?: string } = {}): Promise<JmResp | null> {
   const { method = 'GET', body, cookie, domain } = opts;
   const domains = domain ? [domain] : await jmDomains();
-  for (const d of domains) {
-    try {
-      const ts = Math.floor(Date.now() / 1000).toString();
-      const token = md5(ts + JM_TOKEN_SECRET);
-      const headers: Record<string, string> = {
-        'User-Agent': UA_ANDROID,
-        'Accept-Encoding': 'gzip, deflate',
-        token,
-        tokenparam: `${ts},2.0.30`,
-      };
-      if (body) headers['Content-Type'] = 'application/x-www-form-urlencoded';
-      if (cookie) headers['Cookie'] = cookie;
-      const resp = await fetch(`https://${d}${pathWithQuery}`, {
-        method,
-        signal: AbortSignal.timeout(5000),
-        headers,
-        ...(body ? { body } : {}),
-      });
-      const result = await resp.json();
-      if (result?.code === 200 && typeof result.data === 'string') {
-        const setCookie = resp.headers.get('set-cookie') || undefined;
-        return { data: JSON.parse(jmDecrypt(result.data, ts, JM_TOKEN_SECRET)), setCookie, domain: d };
+  // 并发探测域名（最多 3 个同时），取第一个成功响应，避免串行 5s×N 拖慢搜索
+  const slice = domains.slice(0, 3);
+  const results = await Promise.all(
+    slice.map(async (d) => {
+      try {
+        const ts = Math.floor(Date.now() / 1000).toString();
+        const token = md5(ts + JM_TOKEN_SECRET);
+        const headers: Record<string, string> = {
+          'User-Agent': UA_ANDROID,
+          'Accept-Encoding': 'gzip, deflate',
+          token,
+          tokenparam: `${ts},2.0.30`,
+        };
+        if (body) headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        if (cookie) headers['Cookie'] = cookie;
+        const resp = await fetch(`https://${d}${pathWithQuery}`, {
+          method,
+          signal: AbortSignal.timeout(5000),
+          headers,
+          ...(body ? { body } : {}),
+        });
+        const result = await resp.json();
+        if (result?.code === 200 && typeof result.data === 'string') {
+          const setCookie = resp.headers.get('set-cookie') || undefined;
+          return { data: JSON.parse(jmDecrypt(result.data, ts, JM_TOKEN_SECRET)), setCookie, domain: d };
+        }
+      } catch {
+        /* try others */
       }
-    } catch {
-      /* try next domain */
-    }
-  }
-  return null;
+      return null;
+    })
+  );
+  return results.find((r) => r !== null) ?? null;
 }
 
 function jmCoverUrl(item: any): string {
@@ -212,12 +203,12 @@ const jmAdapter: SourceAdapter = {
       throw err;
     }
     const list = data.data.content;
-    // 封面转 base64：限制并发，避免单个慢封面阻塞全部结果
-    const covers = await mapWithConcurrency(list, 6, async (it: any) => toBase64Cover(jmCoverUrl(it)));
-    return list.map((it: any, i: number) => ({
+    // 搜索列表封面直接返回 URL（前端 getValidImageUrl 会替换可用域名）：
+    // 80 张封面逐个转 base64 需要 10s+，是搜索超时的主因；URL 由浏览器并行加载
+    return list.map((it: any) => ({
       id: String(it.id),
       title: it.name || '',
-      coverUrl: covers[i],
+      coverUrl: jmCoverUrl(it),
       authors: toArr(it.author),
     }));
   },
