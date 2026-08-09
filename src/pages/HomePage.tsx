@@ -3,8 +3,9 @@ import { supabase, mapMangaRow, subscribeToTable } from '../lib/supabase';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Heart, Search } from 'lucide-react';
-import { cn, getValidImageUrl, getSourceName } from '../lib/utils';
+import { cn, getSourceName } from '../lib/utils';
 import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
+import MangaCover from '../components/MangaCover';
 
 export default function HomePage() {
   const [mangas, setMangas] = useState<any[]>([]);
@@ -129,22 +130,13 @@ export default function HomePage() {
                 transition={{ delay: idx * 0.05 }}
               >
                 <Link to={`/manga/${manga.id}`} className="group block h-full bg-white rounded-xl overflow-hidden shadow-theme-card border border-black/[0.03] transition-all hover:-translate-y-1">
-                  <div className="aspect-[2/3] overflow-hidden bg-[#e5e5e5] relative">
-                    <img 
-                      src={getValidImageUrl(manga.coverUrl)} 
-                      alt={manga.title}
-                      className={cn(
-                        "w-full h-full object-cover group-hover:opacity-90 transition-all duration-500",
-                        manga.isR18 ? "blur-md scale-105" : ""
-                      )}
-                      referrerPolicy="no-referrer"
-                    />
-                    {manga.isR18 && (
-                      <span className="absolute top-2 right-2 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider shadow-sm pointer-events-none">
-                        R18
-                      </span>
-                    )}
-                  </div>
+                  <MangaCover
+                    src={manga.coverUrl}
+                    alt={manga.title}
+                    isR18={manga.isR18}
+                    className="aspect-[2/3]"
+                    imgClassName="group-hover:opacity-90 transition-all duration-500"
+                  />
                   <div className="p-[15px]">
                     <div className="font-semibold text-[14px] text-theme-ink mb-1 whitespace-nowrap overflow-hidden text-ellipsis" title={manga.title}>
                       {manga.title}

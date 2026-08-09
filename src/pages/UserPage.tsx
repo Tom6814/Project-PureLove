@@ -3,9 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase, mapProfileRow, mapMangaRow, getPublicFavorites, UserFavorite } from '../lib/supabase';
 import { UserProfile } from '../contexts/AuthContext';
 import { Loader2, Bookmark } from 'lucide-react';
-import { getValidImageUrl, cn, getSourceName } from '../lib/utils';
+import { getValidImageUrl, getSourceName } from '../lib/utils';
 import { format } from 'date-fns';
 import { useSettings } from '../hooks/useSettings';
+import MangaCover from '../components/MangaCover';
 
 export default function UserPage() {
   const { id } = useParams<{ id: string }>();
@@ -197,20 +198,13 @@ export default function UserPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
               {mangas.map((manga) => (
                 <Link key={manga.id} to={`/manga/${manga.id}`} className="group block bg-white/80 backdrop-blur-sm rounded-xl overflow-hidden shadow-sm border border-[#eee] transition-all hover:-translate-y-1 hover:shadow-md">
-                  <div className="aspect-[2/3] overflow-hidden bg-[#e5e5e5] relative">
-                    <img 
-                      src={getValidImageUrl(manga.coverUrl)} 
-                      alt={manga.title}
-                      className={cn(
-                        "w-full h-full object-cover group-hover:opacity-90 transition-all duration-500",
-                        settings.enableR18Blur && manga.isR18 ? "blur-md scale-105" : ""
-                      )}
-                      referrerPolicy="no-referrer"
-                    />
-                    {settings.enableR18Blur && manga.isR18 && (
-                      <span className="absolute top-2 right-2 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider shadow-sm pointer-events-none">R18</span>
-                    )}
-                  </div>
+                  <MangaCover
+                    src={manga.coverUrl}
+                    alt={manga.title}
+                    isR18={manga.isR18}
+                    className="aspect-[2/3]"
+                    imgClassName="group-hover:opacity-90 transition-all duration-500"
+                  />
                   <div className="p-3">
                     <div className="font-medium text-[13px] text-theme-ink mb-1 whitespace-nowrap overflow-hidden text-ellipsis" title={manga.title}>
                       {manga.title}

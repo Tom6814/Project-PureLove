@@ -3,8 +3,8 @@ import { supabase, mapMangaRow, mapProfileRow, subscribeToTable } from '../lib/s
 import { Check, X, Loader2, BookOpen, Trash2, LayoutDashboard, Users, BookHeart, AlertCircle } from 'lucide-react';
 import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 import { useAuth } from '../contexts/AuthContext';
-import { getValidImageUrl, cn } from '../lib/utils';
 import { useSettings } from '../hooks/useSettings';
+import MangaCover from '../components/MangaCover';
 
 export default function AdminPage() {
   const { isAdmin, isReviewer, isRoot } = useAuth();
@@ -260,18 +260,13 @@ export default function AdminPage() {
             {pending.map((manga) => (
               <li key={manga.id} className="p-6 flex flex-col md:flex-row gap-6 hover:bg-theme-main transition-colors">
                 <div className="relative w-[100px] h-[150px] flex-shrink-0">
-                  <img 
-                    src={getValidImageUrl(manga.coverUrl)} 
-                    alt="" 
-                    className={cn(
-                      "w-full h-full object-cover rounded-md border border-[#eee]",
-                      settings.enableR18Blur && manga.isR18 ? "blur-md scale-105" : ""
-                    )}
-                    referrerPolicy="no-referrer"
+                  <MangaCover
+                    src={manga.coverUrl}
+                    isR18={manga.isR18}
+                    badgeText={settings.enableR18Blur && manga.isR18 ? 'R18' : ''}
+                    className="w-full h-full rounded-md border border-[#eee]"
+                    imgClassName="rounded-md"
                   />
-                  {settings.enableR18Blur && manga.isR18 && (
-                    <span className="absolute top-1 right-1 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm pointer-events-none">R18</span>
-                  )}
                 </div>
                 <div className="flex-1 space-y-2">
                   <h3 className="font-semibold text-[15px] leading-tight text-theme-ink">{manga.title}</h3>
@@ -330,18 +325,13 @@ export default function AdminPage() {
             {catalog.map((manga) => (
               <li key={manga.id} className="p-6 flex flex-col md:flex-row gap-6 hover:bg-theme-main transition-colors">
                 <div className="relative w-[80px] h-[120px] flex-shrink-0">
-                  <img 
-                    src={getValidImageUrl(manga.coverUrl)} 
-                    alt="" 
-                    className={cn(
-                      "w-full h-full object-cover rounded-md border border-[#eee]",
-                      settings.enableR18Blur && manga.isR18 ? "blur-md scale-105" : ""
-                    )}
-                    referrerPolicy="no-referrer"
+                  <MangaCover
+                    src={manga.coverUrl}
+                    isR18={manga.isR18}
+                    badgeText={settings.enableR18Blur && manga.isR18 ? 'R18' : ''}
+                    className="w-full h-full rounded-md border border-[#eee]"
+                    imgClassName="rounded-md"
                   />
-                  {settings.enableR18Blur && manga.isR18 && (
-                    <span className="absolute top-1 right-1 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm pointer-events-none">R18</span>
-                  )}
                 </div>
                 <div className="flex-1 space-y-2">
                   <h3 className="font-semibold text-[15px] leading-tight text-theme-ink">{manga.title}</h3>

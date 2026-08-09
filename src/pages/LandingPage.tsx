@@ -12,14 +12,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, mapMangaRow, type Manga } from '../lib/supabase';
-import { getSourceName, getValidImageUrl, cn } from '../lib/utils';
-import { useSettings } from '../hooks/useSettings';
+import { getSourceName } from '../lib/utils';
+import MangaCover from '../components/MangaCover';
 import heroLeft from '../assets/hero-left.png';
 import heroRight from '../assets/hero-right.png';
 
 export default function LandingPage() {
   const { user, openAuthModal } = useAuth();
-  const { settings } = useSettings();
   const [latest, setLatest] = useState<Manga[]>([]);
   const [stats, setStats] = useState({ approved: 0, contributors: 0 });
 
@@ -213,28 +212,14 @@ export default function LandingPage() {
                 transition={{ duration: 0.5, delay: i * 0.05 }}
               >
                 <Link to={`/manga/${m.id}`} className="group block">
-                  <div className="aspect-[2/3] rounded-lg overflow-hidden bg-[#e5e5e5] mb-3 relative border border-black/[0.04]">
-                    {m.coverUrl ? (
-                      <img
-                        src={getValidImageUrl(m.coverUrl)}
-                        alt={m.title}
-                        className={cn(
-                          "w-full h-full object-cover transition-transform duration-700",
-                          settings.enableR18Blur && m.isR18 ? "blur-md scale-110 group-hover:scale-125" : "group-hover:scale-105"
-                        )}
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-theme-muted text-[11px]">
-                        No Cover
-                      </div>
-                    )}
-                    {m.isR18 && (
-                      <span className="absolute top-2 right-2 bg-red-500/90 text-white px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider">
-                        R18
-                      </span>
-                    )}
-                  </div>
+                  <MangaCover
+                    src={m.coverUrl}
+                    alt={m.title}
+                    isR18={m.isR18}
+                    className="aspect-[2/3] rounded-lg bg-[#e5e5e5] mb-3 border border-black/[0.04]"
+                    imgClassName="transition-transform duration-700 group-hover:scale-105"
+                    blurClassName="blur-md scale-110 group-hover:scale-125"
+                  />
                   <div className="text-[13px] font-medium text-theme-ink truncate" title={m.title}>
                     {m.title}
                   </div>
