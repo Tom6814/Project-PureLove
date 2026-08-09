@@ -173,6 +173,68 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // ============================================================
+  // SEO：动态 sitemap + 动态路由 SSR 注入（title/description/OG），提升搜索引擎收录
+  // ============================================================
+  const SITE_URL = process.env.SITE_URL || 'https://purelove.party';
+
+  app.get('/sitemap.xml', async (_req, res) => {
+    try {
+      const pages: string[] = [
+        `${SITE_URL}/`,
+        `${SITE_URL}/explore`,
+      ];
+      // 收录全部已审核 manga 详情页
+      if (SUPABASE_URL && SERVICE_ROLE_KEY) {
+        const admin = createSupabaseClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+        const { data, error } = await admin
+          .from('mangas')
+          .select('id')
+          .eq('status', 'approved');
+        if (!error && data) {
+          for (const row of data) pages.push(`${SITE_URL}/manga/${row.id}`);
+        }
+      }
+      const lastmod = new Date().toISOString().slice(0, 10);
+      const urls = pages
+        .map((loc) => `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </url>`)
+        .join('\n');
+      res.type('application/xml');
+      res.send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`);
+    } catch {
+      res.status(500).send('Error generating sitemap');
+    }
+  });
+
+  // 动态路由 SSR 注入：SPA 的 index.html 默认 meta 无法反映每个页面，
+  // 这里对 /manga/:id 注入匹配的 title / description / OG 标签。
+  async function injectSeoMeta(html: string, title: string, description: string) {
+    return html
+      .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
+      .replace(
+        /<meta name="description" content="[^"]*" \/>/,
+        `<meta name="description" content="${description}" />`
+      )
+      .replace(
+        /<meta property="og:title" content="[^"]*" \/>/,
+        `<meta property="og:title" content="${title}" />`
+      )
+      .replace(
+        /<meta property="og:description" content="[^"]*" \/>/,
+        `<meta property="og:description" content="${description}" />`
+      )
+      .replace(
+        /<meta property="og:url" content="[^"]*" \/>/,
+        `<meta property="og:url" content="${SITE_URL}/" />`
+      );
+  }
+
+  function escapeHtml(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -183,8 +245,28 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+
+    // SSR 注入中间件（生产模式）：读 index.html，对动态路由注入匹配的 meta 后返回
+    app.get('*', async (req, res) => {
+      try {
+        const fs = await import('fs');
+        let html = fs.readFileSync(path.join(distPath, 'index.html'), 'utf-8');
+        const m = req.path.match(/^\/manga\/([^/]+)/);
+        if (m && SUPABASE_URL && SERVICE_ROLE_KEY) {
+          const admin = createSupabaseClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+            auth: { autoRefreshToken: false, persistSession: false },
+          });
+          const { data } = await admin.from('mangas').select('id,title,description').eq('id', m[1]).maybeSingle();
+          if (data) {
+            const title = `${data.title} - Project RN`;
+            const desc = (data.description || `${data.title} 的详情页`).slice(0, 150);
+            html = await injectSeoMeta(html, escapeHtml(title), escapeHtml(desc));
+          }
+        }
+        res.type('html').send(html);
+      } catch {
+        res.sendFile(path.join(distPath, 'index.html'));
+      }
     });
   }
 

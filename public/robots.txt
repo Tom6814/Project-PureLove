@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /submit
+
+Sitemap: https://purelove.party/sitemap.xml
