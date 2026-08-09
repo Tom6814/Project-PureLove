@@ -14,9 +14,55 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-// 首屏渲染完成 → 关闭 index.html 的独立加载进度屏
+// 首屏渲染完成 → 等待首页关键图片（Hero 看板娘，非懒加载）真正下载完成后，再关闭加载进度屏
+const finishLoader = () => (window as any).__finishAppLoader?.();
+
+const isHeroImage = (img: HTMLImageElement) => img.getAttribute('loading') !== 'lazy';
+
+// 等待首页图片元素出现并全部下载完成。
+// LandingPage 是懒加载 chunk，渲染可能晚于 main.tsx，因此先轮询等待元素出现。
+const waitForHeroImages = (): Promise<void> =>
+  new Promise((resolve) => {
+    const deadline = Date.now() + 8000;
+    let settled = false;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+
+    const tryWait = () => {
+      const imgs = Array.from(document.querySelectorAll('section img')).filter((el): el is HTMLImageElement =>
+        el instanceof HTMLImageElement && isHeroImage(el)
+      );
+      if (imgs.length === 0) {
+        if (Date.now() < deadline) setTimeout(tryWait, 120);
+        else settle(); // 超时仍无图片元素（如非首页路由），放行
+        return;
+      }
+      let pending = imgs.length;
+      const done = () => {
+        pending -= 1;
+        if (pending <= 0) settle();
+      };
+      imgs.forEach((img) => {
+        if (img.complete) done();
+        else {
+          img.addEventListener('load', done, { once: true });
+          img.addEventListener('error', done, { once: true }); // 图片失败也放行，避免卡住
+        }
+      });
+    };
+    tryWait();
+  });
+
 requestAnimationFrame(() => {
   requestAnimationFrame(() => {
-    (window as any).__finishAppLoader?.();
+    // 兜底：最多等 8s，防止源图异常导致进度屏永久停留
+    const timeout = new Promise<void>((r) => setTimeout(r, 8000));
+    Promise.race([waitForHeroImages(), timeout]).then(() => {
+      // 给浏览器一帧时间完成首屏绘制，再淡出进度屏
+      requestAnimationFrame(() => requestAnimationFrame(finishLoader));
+    });
   });
 });

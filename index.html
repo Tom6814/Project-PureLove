@@ -25,28 +25,56 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // 加载进度：DOMContentLoaded→40%，window load→80%；React 挂载后由 main.tsx 补到 100% 并淡出
+      // 加载进度：基于真实资源加载计数（脚本/样式/图片），非模拟动画。
+      // 进度由 main.tsx 在 React 渲染 + 首页关键图片下载完成后补到 100% 并淡出。
       (function () {
         var bar = document.getElementById('loader-bar');
         var pct = document.getElementById('loader-pct');
         var v = 0;
+
         function set(n) {
           v = Math.max(v, n);
           if (bar) bar.style.width = v + '%';
           if (pct) pct.textContent = Math.round(v) + '%';
         }
-        // 页面解析完成先推进到 40%
-        document.addEventListener('DOMContentLoaded', function () {
-          set(40);
-          // 之后缓慢爬升到 80%（等待脚本与图片加载）
-          var t = setInterval(function () {
-            if (v >= 80) { clearInterval(t); return; }
-            set(v + (80 - v) * 0.18);
-          }, 220);
-        });
-        window.addEventListener('load', function () { set(80); });
-        // 暴露给 main.tsx：渲染完成后补到 100% 并隐藏
+
+        // 统计已加载的关键资源（JS / CSS / 图片），据此计算真实进度
+        function countLoaded() {
+          var entries = performance.getEntriesByType('resource');
+          var js = 0, css = 0, img = 0;
+          for (var i = 0; i < entries.length; i++) {
+            var name = entries[i].name;
+            if (/\.js(\?|$)/.test(name)) js++;
+            else if (/\.css(\?|$)/.test(name)) css++;
+            else if (/\.(webp|avif|png|jpe?g|svg)(\?|$)/i.test(name)) img++;
+          }
+          return { js: js, css: css, img: img };
+        }
+
+        // 依据已加载资源估算目标进度：HTML→15%，脚本/样式/图片逐步推进，封顶 88%
+        function computeTarget() {
+          var c = countLoaded();
+          var js = Math.min(c.js, 6), css = Math.min(c.css, 1), img = Math.min(c.img, 5);
+          return 15 + js * 9 + css * 8 + img * 8;
+        }
+
+        // 平滑逼近真实进度
+        var timer = setInterval(function () {
+          var target = computeTarget();
+          if (v < target) {
+            v += Math.max(1, Math.round((target - v) * 0.35));
+            if (bar) bar.style.width = v + '%';
+            if (pct) pct.textContent = Math.round(v) + '%';
+          }
+          if (v >= 88) clearInterval(timer);
+        }, 180);
+
+        // 所有非懒加载资源（含首页 Hero 图片）加载完成 → 92%
+        window.addEventListener('load', function () { set(92); });
+
+        // 暴露给 main.tsx：确认渲染与首页图片就绪后补到 100% 并隐藏
         window.__finishAppLoader = function () {
+          clearInterval(timer);
           set(100);
           var el = document.getElementById('app-loader');
           setTimeout(function () { if (el) el.classList.add('hide'); }, 350);
