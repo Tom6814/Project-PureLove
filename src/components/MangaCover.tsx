@@ -33,6 +33,11 @@ export default function MangaCover({
   const { settings, loading } = useSettings();
   // 设置加载完成前默认模糊（保守策略），防止异步拉取导致"先清晰后模糊"暴露内容
   const shouldBlur = isR18 && (loading || settings.enableR18Blur);
+  // 管理员可调模糊强度（px）：内联 filter 覆盖 Tailwind blur 类，保留 scale 缩放类
+  const blurStyle: React.CSSProperties | undefined =
+    shouldBlur && settings.r18BlurAmount != null && settings.r18BlurAmount >= 0
+      ? { filter: `blur(${settings.r18BlurAmount}px)` }
+      : undefined;
 
   return (
     <div className={cn('relative overflow-hidden bg-[#e5e5e5]', className)}>
@@ -41,6 +46,7 @@ export default function MangaCover({
           src={getValidImageUrl(src)}
           alt={alt}
           loading="lazy"
+          style={blurStyle}
           className={cn(
             'w-full h-full object-cover',
             shouldBlur && blurClassName,

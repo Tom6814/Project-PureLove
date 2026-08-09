@@ -6,6 +6,7 @@ import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../hooks/useSettings';
 import MangaCover from '../components/MangaCover';
+import { getValidImageUrl } from '../lib/utils';
 import { findDuplicates, type DuplicateMatch } from '../lib/duplicates';
 import { detectSubmissionSensitive, fieldLabel } from '../lib/sensitiveWords';
 
@@ -48,6 +49,15 @@ export default function AdminPage() {
 
   // 敏感词管理：新增词输入
   const [newWord, setNewWord] = useState('');
+
+  // R18 模糊示例：取库内第一本有封面的已审核本子作为示例图
+  const sampleCover = catalog.find((m) => m.coverUrl)?.coverUrl ?? '';
+  // 占位示例（库为空时）：渐变 + 示例文字
+  const samplePlaceholder =
+    'data:image/svg+xml;charset=utf-8,' +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="208"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd6e0"/><stop offset="1" stop-color="#ff9db8"/></linearGradient></defs><rect width="144" height="208" fill="url(#g)"/><text x="72" y="104" fill="#ffffff" font-size="22" font-family="sans-serif" text-anchor="middle" font-weight="bold">示例</text></svg>`
+    );
 
   // 撞车级别对应颜色
   const levelStyles: Record<DuplicateMatch['level'], string> = {
@@ -291,6 +301,63 @@ export default function AdminPage() {
                    />
                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-theme-accent pointer-events-none"></div>
                  </label>
+               </div>
+
+               {/* 模糊强度调节 + 示例预览 */}
+               <div className="mt-4 border-t border-[#eee] pt-4">
+                 <div className="flex items-center justify-between mb-2">
+                   <span className="text-[12px] font-medium text-theme-ink">模糊强度</span>
+                   <span className="text-[12px] font-mono text-theme-accent bg-theme-bg px-2 py-0.5 rounded border border-[#eee]">
+                     {settings.r18BlurAmount}px
+                   </span>
+                 </div>
+                 <input
+                   type="range"
+                   min={0}
+                   max={30}
+                   step={1}
+                   value={settings.r18BlurAmount}
+                   onChange={(e) => updateSettings({ r18BlurAmount: Number(e.target.value) })}
+                   className="w-full accent-[#d9a29a]"
+                   disabled={!settings.enableR18Blur}
+                 />
+                 <div className="flex justify-between text-[10px] text-theme-muted mt-0.5">
+                   <span>0px 清晰</span>
+                   <span>30px 最强</span>
+                 </div>
+
+                 {/* 示例：原图 vs 当前模糊强度 */}
+                 <div className="mt-4 flex items-center gap-4">
+                   <div className="text-center">
+                     <div className="w-[72px] h-[104px] rounded overflow-hidden border border-[#eee] bg-[#e5e5e5]">
+                       <img
+                         src={sampleCover ? getValidImageUrl(sampleCover) : samplePlaceholder}
+                         alt="示例-原图"
+                         className="w-full h-full object-cover"
+                         referrerPolicy="no-referrer"
+                       />
+                     </div>
+                     <div className="text-[10px] text-theme-muted mt-1">原图</div>
+                   </div>
+                   <span className="text-theme-muted text-[16px]">→</span>
+                   <div className="text-center">
+                     <div className="w-[72px] h-[104px] rounded overflow-hidden border border-[#eee] bg-[#e5e5e5]">
+                       <img
+                         src={sampleCover ? getValidImageUrl(sampleCover) : samplePlaceholder}
+                         alt="示例-模糊效果"
+                         className="w-full h-full object-cover"
+                         style={{ filter: `blur(${settings.r18BlurAmount}px)` }}
+                         referrerPolicy="no-referrer"
+                       />
+                     </div>
+                     <div className="text-[10px] text-theme-muted mt-1">当前效果</div>
+                   </div>
+                 </div>
+                 <p className="text-[11px] text-theme-muted mt-2">
+                   {settings.enableR18Blur
+                     ? '所有 R18 封面将按此强度模糊。'
+                     : '当前未开启 R18 模糊，调整不会生效。'}
+                 </p>
                </div>
              </div>
 

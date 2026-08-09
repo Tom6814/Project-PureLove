@@ -6,12 +6,14 @@ import { Star, MessageSquareDashed, User, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 import { getValidImageUrl, cn, getSourceName } from '../lib/utils';
+import { useSettings } from '../hooks/useSettings';
 
 export default function MangaPage() {
   const { id } = useParams<{ id: string }>();
   const [manga, setManga] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const { user, profile, openAuthModal } = useAuth();
+  const { settings } = useSettings();
   const [revealR18, setRevealR18] = useState(false);
   
   // Interaction form states
@@ -211,9 +213,12 @@ export default function MangaPage() {
               alt={manga.title} 
               fetchPriority="high"
               decoding="async"
+              style={manga.isR18 && !revealR18 && settings.r18BlurAmount != null
+                ? { filter: `blur(${settings.r18BlurAmount}px)` }
+                : undefined}
               className={cn(
                 "w-full h-full object-cover transition-all duration-500",
-                manga.isR18 && !revealR18 ? "blur-xl scale-105" : ""
+                manga.isR18 && !revealR18 ? "scale-105" : ""
               )}
               referrerPolicy="no-referrer"
             />
