@@ -13,3 +13,10 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 );
+
+// 首屏渲染完成 → 关闭 index.html 的独立加载进度屏
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    (window as any).__finishAppLoader?.();
+  });
+});

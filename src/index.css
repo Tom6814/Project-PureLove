@@ -13,3 +13,12 @@
   --font-serif: Georgia, serif;
   --font-sans: "Helvetica Neue", Arial, sans-serif;
 }
+
+/* 加载进度条动画（Suspense fallback / 路由切换时使用） */
+@keyframes loading-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+.loading-bar {
+  animation: loading-slide 1.1s ease-in-out infinite;
+}

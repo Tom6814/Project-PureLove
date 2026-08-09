@@ -16,8 +16,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase, mapMangaRow, type Manga } from '../lib/supabase';
 import { getSourceName } from '../lib/utils';
 import MangaCover from '../components/MangaCover';
-import heroLeft from '../assets/hero-left.png';
-import heroRight from '../assets/hero-right.png';
+import heroLeft from '../assets/hero-left.avif';
+import heroRight from '../assets/hero-right.avif';
 
 export default function LandingPage() {
   const { user, openAuthModal } = useAuth();

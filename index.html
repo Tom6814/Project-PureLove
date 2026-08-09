@@ -1,13 +1,56 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Project RN - 优质本子收集计划</title>
+    <style>
+      /* 独立加载进度屏：纯内联、零依赖，HTML 解析即显示 */
+      #app-loader{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#faf9f6;transition:opacity .45s ease}
+      #app-loader.hide{opacity:0;pointer-events:none}
+      #app-loader .track{width:190px;height:3px;background:#f0eeeb;border-radius:999px;overflow:hidden}
+      #app-loader .bar{height:100%;width:0%;background:#d9a29a;border-radius:999px;transition:width .3s ease}
+      #app-loader .brand{margin-top:18px;font-family:Georgia,serif;font-style:italic;color:#a39b94;font-size:13px;letter-spacing:.3em;text-indent:.3em}
+      #app-loader .pct{margin-top:10px;font-family:"Helvetica Neue",Arial,sans-serif;color:#c8c2bc;font-size:11px;letter-spacing:.12em;font-variant-numeric:tabular-nums}
+    </style>
   </head>
   <body>
+    <div id="app-loader">
+      <div class="track"><div class="bar" id="loader-bar"></div></div>
+      <div class="brand">Project RN</div>
+      <div class="pct" id="loader-pct">0%</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // 加载进度：DOMContentLoaded→40%，window load→80%；React 挂载后由 main.tsx 补到 100% 并淡出
+      (function () {
+        var bar = document.getElementById('loader-bar');
+        var pct = document.getElementById('loader-pct');
+        var v = 0;
+        function set(n) {
+          v = Math.max(v, n);
+          if (bar) bar.style.width = v + '%';
+          if (pct) pct.textContent = Math.round(v) + '%';
+        }
+        // 页面解析完成先推进到 40%
+        document.addEventListener('DOMContentLoaded', function () {
+          set(40);
+          // 之后缓慢爬升到 80%（等待脚本与图片加载）
+          var t = setInterval(function () {
+            if (v >= 80) { clearInterval(t); return; }
+            set(v + (80 - v) * 0.18);
+          }, 220);
+        });
+        window.addEventListener('load', function () { set(80); });
+        // 暴露给 main.tsx：渲染完成后补到 100% 并隐藏
+        window.__finishAppLoader = function () {
+          set(100);
+          var el = document.getElementById('app-loader');
+          setTimeout(function () { if (el) el.classList.add('hide'); }, 350);
+          setTimeout(function () { if (el && el.parentNode) el.parentNode.removeChild(el); }, 900);
+        };
+      })();
+    </script>
   </body>
 </html>
-
