@@ -63,8 +63,8 @@ export default function LandingPage() {
       <div className="fixed bottom-0 right-[-10%] w-[60%] h-[600px] bg-theme-accent/5 rounded-[100%] blur-[120px] pointer-events-none z-0" />
 
       {/* HERO */}
-      <section className="relative pt-10 lg:pt-16 z-10">
-        <div className="grid lg:grid-cols-12 gap-10 lg:gap-4 items-center max-w-[1400px] mx-auto min-h-[600px]">
+      <section className="relative pt-0 lg:pt-2 z-10">
+        <div className="grid lg:grid-cols-12 gap-10 lg:gap-4 items-center max-w-[1400px] mx-auto min-h-[520px]">
           {/* Left Mascot — JM娘 (transparent PNG, fill the column) */}
           <motion.div
             initial={{ opacity: 0, x: -50, rotate: -5 }}
@@ -143,13 +143,13 @@ export default function LandingPage() {
             initial={{ opacity: 0, x: 50, rotate: 5 }}
             animate={{ opacity: 1, x: 0, rotate: 5 }}
             transition={{ duration: 0.9, delay: 0.3, type: 'spring' }}
-            className="hidden lg:flex lg:col-span-3 justify-center items-end py-8"
+            className="hidden lg:flex lg:col-span-3 justify-center items-end py-6"
           >
             <div className="relative flex items-end">
               <img
                 src={heroRight}
                 alt="bika娘"
-                className="w-[200px] xl:w-[225px] h-auto object-contain drop-shadow-[0_22px_38px_rgba(212,80,150,0.30)] select-none"
+                className="w-[240px] xl:w-[270px] h-auto object-contain drop-shadow-[0_24px_40px_rgba(212,80,150,0.30)] select-none"
                 draggable={false}
               />
               <motion.div
