@@ -209,6 +209,8 @@ export default function MangaPage() {
             <img 
               src={getValidImageUrl(manga.coverUrl)} 
               alt={manga.title} 
+              fetchPriority="high"
+              decoding="async"
               className={cn(
                 "w-full h-full object-cover transition-all duration-500",
                 manga.isR18 && !revealR18 ? "blur-xl scale-105" : ""

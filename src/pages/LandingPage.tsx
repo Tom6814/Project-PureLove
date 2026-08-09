@@ -78,6 +78,8 @@ export default function LandingPage() {
             <img
               src={heroLeft}
               alt="JM娘"
+              fetchPriority="high"
+              decoding="async"
               className="w-[280px] xl:w-[330px] h-auto object-contain drop-shadow-[0_28px_45px_rgba(212,80,150,0.32)] select-none"
               draggable={false}
             />
