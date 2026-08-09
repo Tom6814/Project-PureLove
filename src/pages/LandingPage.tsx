@@ -12,12 +12,14 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, mapMangaRow, type Manga } from '../lib/supabase';
-import { getSourceName, getValidImageUrl } from '../lib/utils';
+import { getSourceName, getValidImageUrl, cn } from '../lib/utils';
+import { useSettings } from '../hooks/useSettings';
 import heroLeft from '../assets/hero-left.png';
 import heroRight from '../assets/hero-right.png';
 
 export default function LandingPage() {
   const { user, openAuthModal } = useAuth();
+  const { settings } = useSettings();
   const [latest, setLatest] = useState<Manga[]>([]);
   const [stats, setStats] = useState({ approved: 0, contributors: 0 });
 
@@ -216,7 +218,10 @@ export default function LandingPage() {
                       <img
                         src={getValidImageUrl(m.coverUrl)}
                         alt={m.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        className={cn(
+                          "w-full h-full object-cover transition-transform duration-700",
+                          settings.enableR18Blur && m.isR18 ? "blur-md scale-110 group-hover:scale-125" : "group-hover:scale-105"
+                        )}
                         referrerPolicy="no-referrer"
                       />
                     ) : (
