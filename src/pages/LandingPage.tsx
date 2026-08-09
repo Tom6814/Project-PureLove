@@ -16,6 +16,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase, mapMangaRow, type Manga } from '../lib/supabase';
 import { getSourceName } from '../lib/utils';
 import MangaCover from '../components/MangaCover';
+import { preloadHome, preloadManga, preloadSubmit } from '../preloads';
 import heroLeft from '../assets/hero-left.webp';
 import heroRight from '../assets/hero-right.webp';
 
@@ -135,12 +136,14 @@ export default function LandingPage() {
             >
               <Link
                 to="/explore"
+                onMouseEnter={preloadHome}
                 className="inline-flex items-center justify-center gap-2 bg-theme-ink text-white px-8 py-3.5 rounded text-[13px] font-medium hover:bg-theme-accent hover:shadow-lg hover:shadow-theme-accent/20 transition-all duration-300"
               >
                 进入漫库探寻 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
                 to="/submit"
+                onMouseEnter={preloadSubmit}
                 onClick={handleSubmitClick}
                 className="inline-flex items-center justify-center gap-2 bg-white text-theme-ink border border-[#ddd] px-8 py-3.5 rounded text-[13px] font-medium hover:bg-theme-bg transition-colors shadow-sm"
               >
@@ -221,7 +224,7 @@ export default function LandingPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: i * 0.05 }}
               >
-                <Link to={`/manga/${m.id}`} className="group block">
+                <Link to={`/manga/${m.id}`} onMouseEnter={preloadManga} className="group block">
                   <MangaCover
                     src={m.coverUrl}
                     alt={m.title}

@@ -5,6 +5,7 @@ import { logout } from '../lib/supabase';
 import { LogOut, ShieldCheck } from 'lucide-react';
 import { AuthModal } from './AuthModal';
 import { AnimatePresence } from 'framer-motion';
+import { preloadHome, preloadLanding, preloadSubmit } from '../preloads';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthModalOpen, authMode, closeAuthModal } = useAuth();
@@ -75,6 +76,7 @@ const Header = () => {
                 <Link
                   key={item.path}
                   to={item.path}
+                  onMouseEnter={() => (item.path === '/' ? preloadLanding() : item.path === '/submit' ? preloadSubmit() : preloadHome())}
                   onClick={item.path === '/submit' ? handleSubmitClick : undefined}
                   className={`relative px-4 py-2 text-[14px] font-medium transition-colors group ${
                     isActive ? 'text-theme-ink' : 'text-theme-muted hover:text-theme-ink'

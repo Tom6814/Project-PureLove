@@ -1,7 +1,8 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Layout } from './components/Layout';
+import { preloadCommon } from './preloads';
 
 // 路由级代码分割：每个页面独立 chunk，首屏只加载当前路由所需代码
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -12,10 +13,10 @@ const AdminPage = lazy(() => import('./pages/AdminPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const UserPage = lazy(() => import('./pages/UserPage'));
 
-// 与 index.html 内联加载进度条同风格的 Suspense fallback（路由切换时显示）
+// 与 index.html 内联加载进度条同风格的 Suspense fallback（路由切换时显示，仅覆盖内容区）
 function RouteFallback() {
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-theme-bg">
+    <div className="flex flex-col items-center justify-center py-24 bg-theme-main">
       <div className="relative w-44 h-[3px] bg-[#f0eeeb] overflow-hidden rounded-full">
         <div className="absolute inset-y-0 left-0 w-1/2 bg-theme-accent rounded-full loading-bar" />
       </div>
@@ -37,6 +38,12 @@ const ProtectedRoute = ({ children, adminOrReviewer = false }: { children: React
 };
 
 export default function App() {
+  // 首屏渲染完成后，后台预热常用路由 chunk，点击切换时无需等待下载
+  useEffect(() => {
+    const t = setTimeout(preloadCommon, 600);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <AuthProvider>
       <BrowserRouter>

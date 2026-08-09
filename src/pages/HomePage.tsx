@@ -6,6 +6,7 @@ import { Heart, Search } from 'lucide-react';
 import { cn, getSourceName } from '../lib/utils';
 import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 import MangaCover from '../components/MangaCover';
+import { preloadManga } from '../preloads';
 
 export default function HomePage() {
   const [mangas, setMangas] = useState<any[]>([]);
@@ -129,7 +130,7 @@ export default function HomePage() {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: idx * 0.05 }}
               >
-                <Link to={`/manga/${manga.id}`} className="group block h-full bg-white rounded-xl overflow-hidden shadow-theme-card border border-black/[0.03] transition-all hover:-translate-y-1">
+                <Link to={`/manga/${manga.id}`} onMouseEnter={preloadManga} className="group block h-full bg-white rounded-xl overflow-hidden shadow-theme-card border border-black/[0.03] transition-all hover:-translate-y-1">
                   <MangaCover
                     src={manga.coverUrl}
                     alt={manga.title}
