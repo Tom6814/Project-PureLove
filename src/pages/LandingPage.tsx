@@ -73,14 +73,20 @@ export default function LandingPage() {
             initial={{ opacity: 0, x: -50, rotate: -5 }}
             animate={{ opacity: 1, x: 0, rotate: -5 }}
             transition={{ duration: 0.9, delay: 0.15, type: 'spring' }}
-            className="hidden lg:flex lg:col-span-3 justify-center items-end h-full py-4"
+            className="hidden lg:flex lg:col-span-3 justify-center items-end h-full py-4 relative"
           >
+            {/* 橙色柔光背景（取自 JM娘 主色调 #f0783c） */}
+            <div
+              aria-hidden
+              className="absolute bottom-[6%] left-1/2 -translate-x-1/2 w-[86%] h-[72%] rounded-[50%] blur-[70px] pointer-events-none"
+              style={{ background: 'radial-gradient(closest-side, rgba(240,120,60,0.42), rgba(240,120,60,0.12) 62%, transparent 78%)' }}
+            />
             <img
               src={heroLeft}
               alt="JM娘"
               fetchPriority="high"
               decoding="async"
-              className="w-[280px] xl:w-[330px] h-auto object-contain drop-shadow-[0_28px_45px_rgba(212,80,150,0.32)] select-none"
+              className="relative w-[280px] xl:w-[330px] h-auto object-contain drop-shadow-[0_28px_45px_rgba(240,120,60,0.30)] select-none"
               draggable={false}
             />
           </motion.div>
