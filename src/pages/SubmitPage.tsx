@@ -155,7 +155,13 @@ export default function SubmitPage() {
         setError(res.data.error || '搜索失败');
       }
     } catch (err: any) {
-      setError(err.message || '搜索失败');
+      if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
+        setError('搜索超时（源站响应慢），请稍后重试');
+      } else if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else {
+        setError(err.message || '搜索失败，请重试');
+      }
     } finally {
       setSearching(false);
     }

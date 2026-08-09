@@ -85,6 +85,20 @@ const toArr = (v: any): string[] => {
   return [];
 };
 
+/** 并发受限的 async map：避免大量并发请求打满源站/超时。 */
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
+}
+
 // ------------------------------------------------------------
 // jm (禁漫) — mobile API + AES decryption
 // ------------------------------------------------------------
@@ -112,21 +126,29 @@ function jmDecrypt(data: string, ts: string, secret: string): string {
 
 async function jmDomains(): Promise<string[]> {
   if (jmDomainsCache && Date.now() - jmDomainsCache.fetchedAt < 6 * 60 * 60 * 1000) return jmDomainsCache.list;
-  for (const url of JM_DOMAIN_URLS) {
-    try {
-      const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (!resp.ok) continue;
-      let text = await resp.text();
-      while (text && text.charCodeAt(0) < 32) text = text.slice(1);
-      const json = JSON.parse(jmDecrypt(text, '', JM_DOMAIN_SECRET));
-      if (Array.isArray(json.Server) && json.Server.length > 0) {
-        jmDomainsCache = { list: json.Server, fetchedAt: Date.now() };
-        return json.Server;
+  // 并发探测域名列表源，避免串行超时（3 × 4s → 最快 4s 内返回）
+  const results = await Promise.all(
+    JM_DOMAIN_URLS.map(async (url) => {
+      try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(4000) });
+        if (!resp.ok) return null;
+        let text = await resp.text();
+        while (text && text.charCodeAt(0) < 32) text = text.slice(1);
+        const json = JSON.parse(jmDecrypt(text, '', JM_DOMAIN_SECRET));
+        if (Array.isArray(json.Server) && json.Server.length > 0) return json.Server as string[];
+      } catch {
+        /* try next */
       }
-    } catch {
-      /* try next */
+      return null;
+    })
+  );
+  for (const list of results) {
+    if (list && list.length > 0) {
+      jmDomainsCache = { list, fetchedAt: Date.now() };
+      return list;
     }
   }
+  // 全部失败：回退到静态域名列表
   jmDomainsCache = { list: JM_FALLBACK_DOMAINS, fetchedAt: Date.now() };
   return JM_FALLBACK_DOMAINS;
 }
@@ -150,7 +172,7 @@ async function jmRequest(pathWithQuery: string, opts: { method?: string; body?: 
       if (cookie) headers['Cookie'] = cookie;
       const resp = await fetch(`https://${d}${pathWithQuery}`, {
         method,
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(5000),
         headers,
         ...(body ? { body } : {}),
       });
@@ -183,15 +205,21 @@ const jmAdapter: SourceAdapter = {
 
   async search(q, page) {
     const data = await jmRequest(`/search?search_query=${encodeURIComponent(q)}&page=${page}&o=`);
-    const list = Array.isArray(data?.data?.content) ? data.data.content : [];
-    return Promise.all(
-      list.map(async (it: any) => ({
-        id: String(it.id),
-        title: it.name || '',
-        coverUrl: await toBase64Cover(jmCoverUrl(it)),
-        authors: toArr(it.author),
-      }))
-    );
+    if (!data || !Array.isArray(data?.data?.content)) {
+      // 所有域名均失败（超时/被限流），抛出明确错误，前端可展示而非空结果
+      const err = new Error('JM 搜索暂不可用（源站无响应），请稍后重试');
+      (err as any).code = 'JM_SEARCH_FAIL';
+      throw err;
+    }
+    const list = data.data.content;
+    // 封面转 base64：限制并发，避免单个慢封面阻塞全部结果
+    const covers = await mapWithConcurrency(list, 6, async (it: any) => toBase64Cover(jmCoverUrl(it)));
+    return list.map((it: any, i: number) => ({
+      id: String(it.id),
+      title: it.name || '',
+      coverUrl: covers[i],
+      authors: toArr(it.author),
+    }));
   },
 
   async detail(id) {
