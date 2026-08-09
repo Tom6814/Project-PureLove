@@ -64,18 +64,18 @@ export default function LandingPage() {
 
       {/* HERO */}
       <section className="relative pt-10 lg:pt-16 z-10">
-        <div className="grid lg:grid-cols-12 gap-10 lg:gap-4 items-center max-w-[1400px] mx-auto">
-          {/* Left Mascot — JM娘 (transparent PNG) */}
+        <div className="grid lg:grid-cols-12 gap-10 lg:gap-4 items-center max-w-[1400px] mx-auto min-h-[600px]">
+          {/* Left Mascot — JM娘 (transparent PNG, fill the column) */}
           <motion.div
-            initial={{ opacity: 0, x: -50, rotate: -4 }}
-            animate={{ opacity: 1, x: 0, rotate: -4 }}
+            initial={{ opacity: 0, x: -50, rotate: -5 }}
+            animate={{ opacity: 1, x: 0, rotate: -5 }}
             transition={{ duration: 0.9, delay: 0.15, type: 'spring' }}
-            className="hidden lg:flex lg:col-span-3 justify-center items-end"
+            className="hidden lg:flex lg:col-span-3 justify-center items-end h-full py-4"
           >
             <img
               src={heroLeft}
               alt="JM娘"
-              className="w-[200px] xl:w-[230px] h-auto object-contain drop-shadow-[0_20px_35px_rgba(212,80,150,0.28)] select-none"
+              className="w-[280px] xl:w-[330px] h-auto object-contain drop-shadow-[0_28px_45px_rgba(212,80,150,0.32)] select-none"
               draggable={false}
             />
           </motion.div>
@@ -140,16 +140,16 @@ export default function LandingPage() {
 
           {/* Right Mascot — bika娘 (transparent PNG) */}
           <motion.div
-            initial={{ opacity: 0, x: 50, rotate: 4 }}
-            animate={{ opacity: 1, x: 0, rotate: 4 }}
+            initial={{ opacity: 0, x: 50, rotate: 5 }}
+            animate={{ opacity: 1, x: 0, rotate: 5 }}
             transition={{ duration: 0.9, delay: 0.3, type: 'spring' }}
-            className="hidden lg:flex lg:col-span-3 justify-center items-end"
+            className="hidden lg:flex lg:col-span-3 justify-center items-end py-8"
           >
             <div className="relative flex items-end">
               <img
                 src={heroRight}
                 alt="bika娘"
-                className="w-[200px] xl:w-[230px] h-auto object-contain drop-shadow-[0_20px_35px_rgba(212,80,150,0.28)] select-none"
+                className="w-[200px] xl:w-[225px] h-auto object-contain drop-shadow-[0_22px_38px_rgba(212,80,150,0.30)] select-none"
                 draggable={false}
               />
               <motion.div
