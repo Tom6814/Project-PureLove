@@ -135,6 +135,7 @@ export default function SubmitPage() {
     setError('');
     setNeedsLogin(false);
     setSearched(false);
+    setPreview(null); // 重新搜索时退出提交表单，回到结果列表
     try {
       const cacheKey = `${source}:search:${q.trim()}`;
       const cached = await getSourceCache<SearchItem[]>(cacheKey);
@@ -433,8 +434,8 @@ export default function SubmitPage() {
             {error && <p className="text-red-500 text-[13px] mt-2">{error}</p>}
           </div>
 
-          {/* Search results */}
-          {searched && (
+          {/* Search results（选择本子并进入提交表单后自动隐藏） */}
+          {searched && !preview && (
             <div>
               <h3 className="font-semibold text-theme-ink mb-3 text-[14px]">
                 搜索结果 ({results.length})

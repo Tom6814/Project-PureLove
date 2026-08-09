@@ -269,7 +269,7 @@ export default function MangaPage() {
           <div className="pt-4 pb-2">
             {manga.source === 'jm' ? (
               <a 
-                href={`https://web.jmcomic.uk/detail/${manga.jmId}`} 
+                href={`https://web.jmcomic.uk/comic/detail?id=${manga.jmId}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="inline-flex items-center px-6 py-2.5 bg-theme-accent text-white rounded-lg text-[14px] font-medium hover:opacity-90 transition-all shadow-sm"
