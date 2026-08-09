@@ -60,7 +60,7 @@ const normAuthors = (authors?: string[]) =>
 
 /**
  * 查重：将待审核的本子与库内已有本子（approved）逐一比对。
- * 跨源比对（不分 source）：只要 JM ID / 标题 / 作者匹配，无论来源是否相同都判定疑似撞车。
+ * 标题 / 作者比对跨源（不分 source）；JM ID 是 JM 源专属 ID，仅限 source === 'jm' 时比较。
  * 返回按相似度降序的匹配列表。
  */
 export function findDuplicates(
@@ -74,8 +74,10 @@ export function findDuplicates(
   for (const lib of library) {
     if (lib.id === candidate.id) continue;
 
-    // 1) JM ID 完全一致 → 确定撞车（跨源：不看 source）
+    // 1) JM ID 完全一致 → 确定撞车（仅限同源：jmId 是 JM 源专属 ID，跨源比较无意义）
     if (
+      candidate.source === 'jm' &&
+      lib.source === 'jm' &&
       candidate.jmId &&
       lib.jmId &&
       String(candidate.jmId) === String(lib.jmId)
