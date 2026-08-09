@@ -9,13 +9,33 @@ export interface DuplicateMatch {
   level: 'high' | 'medium' | 'low';
 }
 
-/** 标题规范化：小写、去除常见干扰词与标点，用于比对 */
+/** 去掉括号（()（）[]【】）及其内部全部内容，支持嵌套 */
+function stripBrackets(s: string): string {
+  let out = s;
+  for (let i = 0; i < 3; i++) {
+    const next = out
+      .replace(/\([^()]*\)/g, '')
+      .replace(/（[^（）]*）/g, '')
+      .replace(/\[[^\[\]]*\]/g, '')
+      .replace(/【[^【】]*】/g, '');
+    if (next === out) break;
+    out = next;
+  }
+  return out;
+}
+
+/** 标题规范化：小写、删除括号内容、去除常见干扰词与标点，用于比对 */
 export function normalizeTitle(s: string): string {
   return (s || '')
     .toLowerCase()
     .replace(/(汉化版|中文版|简中|繁中|全彩|高清|无修版|完整版|扫描版|电子版)/g, '')
     .replace(/[^\p{L}\p{N}]/gu, '')
     .trim();
+}
+
+/** 标题规范化（含去括号内容）：小写、删除括号及内容、去除干扰词与标点 */
+export function normalizeTitleForCompare(s: string): string {
+  return normalizeTitle(stripBrackets(s));
 }
 
 /** 基于字符二元组的 Dice 相似度（0-1），适合中文/短标题 */
@@ -48,7 +68,7 @@ export function findDuplicates(
   library: Manga[]
 ): DuplicateMatch[] {
   const results: DuplicateMatch[] = [];
-  const candNorm = normalizeTitle(candidate.title);
+  const candNorm = normalizeTitleForCompare(candidate.title);
   const candAuthors = normAuthors(candidate.authors);
 
   for (const lib of library) {
@@ -64,7 +84,7 @@ export function findDuplicates(
       continue;
     }
 
-    const libNorm = normalizeTitle(lib.title);
+    const libNorm = normalizeTitleForCompare(lib.title);
     if (!candNorm || !libNorm) continue;
 
     // 2) 规范化标题完全相同 → 高度疑似
