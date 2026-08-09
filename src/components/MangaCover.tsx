@@ -39,6 +39,7 @@ export default function MangaCover({
         <img
           src={getValidImageUrl(src)}
           alt={alt}
+          loading="lazy"
           className={cn(
             'w-full h-full object-cover',
             shouldBlur && blurClassName,
