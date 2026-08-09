@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase, mapMangaRow, mapProfileRow, subscribeToTable } from '../lib/supabase';
-import { Check, X, Loader2, BookOpen, Trash2, LayoutDashboard, Users, BookHeart, AlertCircle } from 'lucide-react';
+import { Check, X, Loader2, BookOpen, Trash2, LayoutDashboard, Users, BookHeart, AlertCircle, ShieldAlert, Plus, Minus } from 'lucide-react';
 import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../hooks/useSettings';
 import MangaCover from '../components/MangaCover';
 import { findDuplicates, type DuplicateMatch } from '../lib/duplicates';
+import { detectSubmissionSensitive, fieldLabel } from '../lib/sensitiveWords';
 
 export default function AdminPage() {
   const { isAdmin, isReviewer, isRoot } = useAuth();
@@ -32,6 +33,21 @@ export default function AdminPage() {
     }
     return map;
   }, [pending, catalog]);
+
+  // 敏感词检测：每条待审核本子的信息中命中哪些敏感字段
+  const sensitiveMap = useMemo(() => {
+    const map: Record<string, ReturnType<typeof detectSubmissionSensitive>> = {};
+    for (const p of pending) {
+      map[p.id] = detectSubmissionSensitive(
+        { title: p.title, description: p.description, review: p.review, authors: p.authors, tags: p.tags },
+        settings.sensitiveWords
+      );
+    }
+    return map;
+  }, [pending, settings.sensitiveWords]);
+
+  // 敏感词管理：新增词输入
+  const [newWord, setNewWord] = useState('');
 
   // 撞车级别对应颜色
   const levelStyles: Record<DuplicateMatch['level'], string> = {
@@ -166,6 +182,21 @@ export default function AdminPage() {
     }
   };
 
+  const addSensitiveWord = () => {
+    const word = newWord.trim();
+    if (!word) return;
+    if (settings.sensitiveWords.includes(word)) {
+      setNewWord('');
+      return;
+    }
+    updateSettings({ sensitiveWords: [...settings.sensitiveWords, word] });
+    setNewWord('');
+  };
+
+  const removeSensitiveWord = (word: string) => {
+    updateSettings({ sensitiveWords: settings.sensitiveWords.filter((w) => w !== word) });
+  };
+
   if (loading) return <div className="p-8 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-theme-accent" /></div>;
 
   return (
@@ -252,15 +283,57 @@ export default function AdminPage() {
                    <p className="text-[12px] text-theme-muted">开启后，用户在提交时可勾选 R18 选项。勾选的作品在首页列表会模糊显示封面，详情页需点击后才可查看。</p>
                  </div>
                  <label className="relative inline-flex items-center cursor-pointer ml-4">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer" 
-                      checked={!!settings.enableR18Blur}
-                      onChange={(e) => updateSettings({ enableR18Blur: e.target.checked })}
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-theme-accent pointer-events-none"></div>
-                  </label>
+                   <input 
+                     type="checkbox" 
+                     className="sr-only peer" 
+                     checked={!!settings.enableR18Blur}
+                     onChange={(e) => updateSettings({ enableR18Blur: e.target.checked })}
+                   />
+                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-theme-accent pointer-events-none"></div>
+                 </label>
                </div>
+             </div>
+
+             {/* 敏感词管理 */}
+             <div className="max-w-md mx-auto bg-white p-4 rounded-lg border border-[#eee] text-left">
+               <h4 className="text-[14px] font-medium text-theme-ink mb-1">敏感词过滤</h4>
+               <p className="text-[12px] text-theme-muted mb-3">
+                 用户提交的本子信息（标题/简介/推荐语/作者/标签）命中敏感词时，需二次确认才能提交；管理员审核界面会显示警告。
+               </p>
+               <div className="flex gap-2 mb-3">
+                 <input
+                   type="text"
+                   value={newWord}
+                   onChange={(e) => setNewWord(e.target.value)}
+                   onKeyDown={(e) => { if (e.key === 'Enter') addSensitiveWord(); }}
+                   placeholder="输入敏感词，回车或点击添加"
+                   className="flex-1 px-3 py-1.5 bg-theme-search border border-[#eee] rounded-lg text-[12px] text-theme-ink focus:outline-none focus:border-theme-accent focus:ring-1 focus:ring-theme-accent"
+                 />
+                 <button
+                   onClick={addSensitiveWord}
+                   className="shrink-0 px-3 py-1.5 bg-theme-ink text-white rounded-lg text-[12px] font-medium hover:bg-black transition-colors flex items-center gap-1"
+                 >
+                   <Plus className="w-3.5 h-3.5" /> 添加
+                 </button>
+               </div>
+               {settings.sensitiveWords.length === 0 ? (
+                 <p className="text-[12px] text-theme-muted">尚未设置敏感词。</p>
+               ) : (
+                 <div className="flex flex-wrap gap-2">
+                   {settings.sensitiveWords.map((w) => (
+                     <span key={w} className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 px-2 py-1 rounded-full text-[12px]">
+                       {w}
+                       <button
+                         onClick={() => removeSensitiveWord(w)}
+                         className="hover:text-red-500 transition-colors"
+                         title={`移除 ${w}`}
+                       >
+                         <Minus className="w-3 h-3" />
+                       </button>
+                     </span>
+                   ))}
+                 </div>
+               )}
              </div>
           </div>
         </div>
@@ -323,6 +396,26 @@ export default function AdminPage() {
                             </span>
                             <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium border ${levelStyles[d.level]}`}>
                               {d.reason}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* 敏感词警告：提交信息命中管理员设置的敏感词 */}
+                  {(sensitiveMap[manga.id] ?? []).length > 0 && (
+                    <div className="mt-3 rounded-lg border border-orange-200 bg-orange-50/60 p-3">
+                      <div className="flex items-center gap-1.5 text-[12px] font-semibold text-orange-700 mb-2">
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        命中敏感词（用户已二次确认提交）
+                      </div>
+                      <ul className="space-y-1">
+                        {sensitiveMap[manga.id].map((h, i) => (
+                          <li key={i} className="flex items-center justify-between text-[12px]">
+                            <span className="text-orange-800 font-medium">{fieldLabel(h.field)}</span>
+                            <span className="text-orange-700 bg-white border border-orange-200 px-1.5 py-0.5 rounded text-[11px] font-mono">
+                              {h.word}
                             </span>
                           </li>
                         ))}

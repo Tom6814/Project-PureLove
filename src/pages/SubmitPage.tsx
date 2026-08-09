@@ -3,9 +3,11 @@ import { supabase, getSourceCredentials, saveSourceCredentials, deleteSourceCred
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Info, Send, Loader2, CheckCircle, Search as SearchIcon, KeyRound } from 'lucide-react';
+import { Info, Send, Loader2, CheckCircle, Search as SearchIcon, KeyRound, AlertTriangle } from 'lucide-react';
 import { handleSupabaseError, OperationType } from '../lib/supabase-errors';
 import { getValidImageUrl, cn } from '../lib/utils';
+import { useSettings } from '../hooks/useSettings';
+import { detectSubmissionSensitive, fieldLabel, type SensitiveHit } from '../lib/sensitiveWords';
 
 interface SourceInfo {
   id: string;
@@ -23,6 +25,9 @@ interface SearchItem {
 export default function SubmitPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { settings } = useSettings();
+  // 敏感词二次确认：命中时先弹确认框，用户确认后才真正提交
+  const [sensitiveHits, setSensitiveHits] = useState<SensitiveHit[] | null>(null);
 
   // source management
   const [sources, setSources] = useState<SourceInfo[]>([]);
@@ -270,6 +275,27 @@ export default function SubmitPage() {
       setError('请选择作品分类 (日漫/韩漫/其他)');
       return;
     }
+
+    // 敏感词检测：命中则弹二次确认，用户确认后才提交
+    const hits = detectSubmissionSensitive(
+      {
+        title: formData.title,
+        description: formData.description,
+        review: formData.review,
+        authors: formData.authors.split(',').map((s) => s.trim()).filter(Boolean),
+        tags: formData.tags.split(',').map((s) => s.trim()).filter(Boolean),
+      },
+      settings.sensitiveWords
+    );
+    if (hits.length > 0) {
+      setSensitiveHits(hits);
+      return;
+    }
+    await doSubmit();
+  };
+
+  const doSubmit = async () => {
+    if (!preview || !user) return;
     setSubmitting(true);
     try {
       const authorsArr = formData.authors.split(',').map((s) => s.trim()).filter(Boolean);
@@ -632,6 +658,46 @@ export default function SubmitPage() {
         <div className="fixed top-6 left-1/2 -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-50 flex items-center text-[14px] font-medium animate-in fade-in slide-in-from-top-4">
           <CheckCircle className="w-5 h-5 mr-2" />
           {toastMessage}
+        </div>
+      )}
+
+      {/* 敏感词二次确认弹窗 */}
+      {sensitiveHits && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+              <h3 className="text-[15px] font-semibold text-theme-ink">敏感词提示</h3>
+            </div>
+            <p className="text-[13px] text-theme-ink mb-4 leading-relaxed">
+              检测出该本子信息含有以下敏感字段，确认要继续提交吗？
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5 space-y-1.5 max-h-40 overflow-y-auto">
+              {sensitiveHits.map((h, i) => (
+                <div key={i} className="flex items-center justify-between text-[13px]">
+                  <span className="text-amber-800 font-medium">{fieldLabel(h.field)}</span>
+                  <span className="text-amber-700 bg-white border border-amber-200 px-2 py-0.5 rounded text-[12px] font-mono">
+                    {h.word}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setSensitiveHits(null)}
+                className="px-4 py-2 bg-theme-bg border border-[#eee] rounded-lg text-[13px] font-medium text-theme-ink hover:border-theme-accent/40 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => { setSensitiveHits(null); doSubmit(); }}
+                disabled={submitting}
+                className="px-4 py-2 bg-amber-500 text-white rounded-lg text-[13px] font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors"
+              >
+                确认继续提交
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
