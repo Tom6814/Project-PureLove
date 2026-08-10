@@ -12,6 +12,43 @@
     <link rel="canonical" href="https://purelove.party/" />
     <link rel="alternate" hreflang="zh-CN" href="https://purelove.party/" />
 
+    <!-- ============================================================
+         浏览器兼容检测（纯 ES5 语法，所有内核都能执行）
+         主应用（Vite + React）要求较新的内核（ES2020 语法 + 关键 API）。
+         检测失败 → 显示下方纯 HTML 降级页（风格与主应用一致），
+         保证旧内核（如 Android 8 出厂 WebView）也能正常访问站点。
+         ============================================================ -->
+    <script>
+      (function () {
+        var ok = true;
+        // 关键 ES6+ API（Android 8 出厂 WebView ≈ Chrome 61 已具备；再旧的缺失）
+        if (typeof Promise === 'undefined') ok = false;
+        if (typeof Symbol === 'undefined') ok = false;
+        if (typeof Map === 'undefined' || typeof Set === 'undefined') ok = false;
+        if (typeof fetch === 'undefined') ok = false;
+        if (typeof requestAnimationFrame === 'undefined') ok = false;
+        // ES2020 语法（可选链 / 空值合并）：Vite 现代产物最低要求
+        try { new Function('var a = {}; var b = a?.x ?? 1;'); } catch (e) { ok = false; }
+        // async / await
+        try { new Function('async function f() { await 1; }'); } catch (e) { ok = false; }
+        // Array.from / Object.assign 等常用现代方法
+        if (typeof Array.prototype.includes === 'undefined') ok = false;
+        if (typeof Object.assign === 'undefined') ok = false;
+        if (typeof window.fetch === 'undefined') ok = false;
+
+        if (ok) return; // 现代浏览器，正常加载主应用
+
+        // 旧内核：显示 HTML 降级页，隐藏加载进度屏与 React 挂载点
+        var loader = document.getElementById('app-loader');
+        if (loader) loader.style.display = 'none';
+        var fallback = document.getElementById('compat-fallback');
+        if (fallback) fallback.style.display = 'flex';
+        var root = document.getElementById('root');
+        if (root) root.style.display = 'none';
+        try { document.title = 'Project RN - 请升级浏览器'; } catch (e) {}
+      })();
+    </script>
+
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Project RN" />
@@ -54,6 +91,38 @@
       <div class="brand">Project RN</div>
       <div class="pct" id="loader-pct">0%</div>
     </div>
+
+    <!-- ============================================================
+         纯 HTML 降级页：仅旧内核浏览器显示（由上方检测脚本控制），
+         无 JavaScript 支持时由 <noscript> 兜底。内联样式全用基础 CSS，
+         兼容到最老内核；视觉风格与主应用保持一致（主题色 / 衬线字体）。
+         ============================================================ -->
+    <div id="compat-fallback" style="display:none;position:fixed;inset:0;background:#faf9f6;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;font-family:'Helvetica Neue',Arial,sans-serif;z-index:999999;">
+      <div style="font-family:Georgia,serif;font-style:italic;color:#a39b94;font-size:13px;letter-spacing:.3em;margin-bottom:24px;">Project RN</div>
+      <h1 style="font-family:Georgia,serif;font-weight:400;color:#2d2a2a;font-size:26px;margin:0 0 12px;">您的浏览器版本过低</h1>
+      <p style="color:#a39b94;font-size:14px;line-height:1.8;max-width:420px;margin:0 0 8px;">
+        当前内核无法完整渲染本网站。为保证浏览体验，请使用以下任一浏览器访问。
+      </p>
+      <p style="color:#c8c2bc;font-size:12px;line-height:1.8;max-width:420px;margin:0 0 28px;">
+        若您正在使用旧手机内置浏览器，请尝试升级系统，或安装 Chrome / Edge 浏览器。
+      </p>
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;max-width:440px;">
+        <a href="https://www.google.com/chrome/" style="display:inline-block;margin:4px;padding:10px 20px;border-radius:999px;background:#2d2a2a;color:#fff;text-decoration:none;font-size:13px;">Google Chrome</a>
+        <a href="https://www.microsoft.com/edge" style="display:inline-block;margin:4px;padding:10px 20px;border-radius:999px;background:#2d2a2a;color:#fff;text-decoration:none;font-size:13px;">Microsoft Edge</a>
+        <a href="https://www.mozilla.org/firefox/" style="display:inline-block;margin:4px;padding:10px 20px;border-radius:999px;background:#2d2a2a;color:#fff;text-decoration:none;font-size:13px;">Firefox</a>
+        <a href="https://www.apple.com/safari/" style="display:inline-block;margin:4px;padding:10px 20px;border-radius:999px;background:#2d2a2a;color:#fff;text-decoration:none;font-size:13px;">Safari</a>
+      </div>
+      <p style="color:#c8c2bc;font-size:11px;margin:28px 0 0;">纯爱，始终有位置。</p>
+    </div>
+
+    <!-- 无 JavaScript 时同样展示降级提示（基础样式兜底） -->
+    <noscript>
+      <style>
+        #app-loader { display: none !important; }
+        #compat-fallback { display: flex !important; }
+      </style>
+    </noscript>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
