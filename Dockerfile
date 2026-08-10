@@ -1,4 +1,5 @@
-FROM node:20-alpine
+# Node 22+：@supabase/supabase-js 的 Realtime 依赖 Node 22 原生 WebSocket，Node 20 会直接抛错崩溃
+FROM node:22-alpine
 
 WORKDIR /app
 
