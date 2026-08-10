@@ -188,6 +188,7 @@ export default function AdminPage() {
     setStats(s => ({...s, totalPending: pending.length}));
   }, [pending]);
 
+  // 乐观更新：操作成功立即反映到本地 state（不依赖 Realtime 推送，保证点击即有反馈）
   const handleUpdateStatus = async (mangaId: string, status: 'approved' | 'rejected' | 'pending') => {
     try {
       const { error } = await supabase
@@ -195,8 +196,18 @@ export default function AdminPage() {
         .update({ status })
         .eq('id', mangaId);
       if (error) throw error;
+      // 从待审核队列移除；approve 时同步加入已审核库（若本地已有该条完整数据）
+      setPending((prev) => prev.filter((m) => m.id !== mangaId));
+      if (status === 'approved') {
+        setCatalog((prev) => {
+          if (prev.some((m) => m.id === mangaId)) return prev;
+          const item = pending.find((m) => m.id === mangaId);
+          return item ? [...prev, { ...item, status }] : prev;
+        });
+      }
     } catch (error) {
-      handleSupabaseError(error, OperationType.UPDATE, `mangas/${mangaId}`);
+      console.error(`[Admin] 更新状态失败 ${mangaId}:`, error);
+      alert('操作失败，请重试');
     }
   };
 
@@ -207,8 +218,11 @@ export default function AdminPage() {
         .update({ is_r18: isR18 })
         .eq('id', mangaId);
       if (error) throw error;
+      setPending((prev) => prev.map((m) => (m.id === mangaId ? { ...m, isR18 } : m)));
+      setCatalog((prev) => prev.map((m) => (m.id === mangaId ? { ...m, isR18 } : m)));
     } catch (error) {
-      handleSupabaseError(error, OperationType.UPDATE, `mangas/${mangaId}`);
+      console.error(`[Admin] 更新 R18 失败 ${mangaId}:`, error);
+      alert('操作失败，请重试');
     }
   };
 
@@ -219,8 +233,10 @@ export default function AdminPage() {
         .update({ role })
         .eq('id', userId);
       if (error) throw error;
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
     } catch (error) {
-      handleSupabaseError(error, OperationType.UPDATE, `users/${userId}`);
+      console.error(`[Admin] 更新角色失败 ${userId}:`, error);
+      alert('操作失败，请重试');
     }
   };
 
