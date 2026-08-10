@@ -2,14 +2,31 @@ import { createClient, type User as SupabaseUser } from '@supabase/supabase-js';
 
 // ============================================================
 // Supabase client
+// 配置优先级：server 运行时注入（window.__SUPABASE_CONFIG__，生产部署用）
+//            > Vite 构建期变量（import.meta.env.VITE_*，本地开发用）
+// 生产环境由 server.ts 在返回 index.html 时注入运行时变量，
+// 因此部署时无需把 VITE_* 配成构建期变量，避免构建失败。
 // ============================================================
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+declare global {
+  interface Window {
+    __SUPABASE_CONFIG__?: { url?: string; key?: string };
+  }
+}
+
+const runtimeConfig =
+  typeof window !== 'undefined' ? window.__SUPABASE_CONFIG__ : undefined;
+
+const supabaseUrl =
+  runtimeConfig?.url || import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey =
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
+  runtimeConfig?.key ||
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  '';
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error(
-    'Missing Supabase env: set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in .env'
+    'Missing Supabase env: set SUPABASE_URL & SUPABASE_PUBLISHABLE_KEY in deployment (or VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY in .env for local dev)'
   );
 }
 

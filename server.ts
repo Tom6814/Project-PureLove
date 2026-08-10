@@ -5,13 +5,26 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { sources, getSource } from './sources';
 
 // ============================================================
-// 收藏夹每日同步任务
-// 使用服务器存储的源账号（source_accounts），逐个拉取用户在各源的收藏，
-// 覆盖写入 user_favorites 快照（覆盖前一天的），供个人主页公开展示。
-// 需要 SUPABASE_SERVICE_ROLE_KEY 才能跨用户读写；未配置则跳过并打印提示。
+// Supabase 运行时配置
+// 生产部署读取普通环境变量（SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY），
+// 在返回 index.html 时注入 window.__SUPABASE_CONFIG__ 供前端使用，
+// 不依赖构建期 VITE_* 变量（避免 Zeabur 等平台构建失败）。
+// 同时兼容旧变量名（VITE_SUPABASE_URL 等）。
 // ============================================================
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  '';
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+/** 注入到 index.html 的运行时 Supabase 配置脚本 */
+function supabaseConfigScript(): string {
+  const config = JSON.stringify({ url: SUPABASE_URL, key: SUPABASE_PUBLISHABLE_KEY });
+  return `<script>window.__SUPABASE_CONFIG__ = ${config};</script>`;
+}
 
 async function syncAllFavorites() {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
@@ -244,13 +257,16 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // index: false —— 首页也交给下方中间件处理，确保注入运行时 Supabase 配置
+    app.use(express.static(distPath, { index: false }));
 
     // SSR 注入中间件（生产模式）：读 index.html，对动态路由注入匹配的 meta 后返回
     app.get('*', async (req, res) => {
       try {
         const fs = await import('fs');
         let html = fs.readFileSync(path.join(distPath, 'index.html'), 'utf-8');
+        // 注入运行时 Supabase 配置（部署时无需构建期 VITE_* 变量）
+        html = html.replace('</head>', `${supabaseConfigScript()}</head>`);
         const m = req.path.match(/^\/manga\/([^/]+)/);
         if (m && SUPABASE_URL && SERVICE_ROLE_KEY) {
           const admin = createSupabaseClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
